@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-// Fills an empty database with a full 14-day test plan. Usage: php tests/load_test_data.php
-
-require __DIR__ . '/../src/app.php';
+// Test plan, loaded into an empty database when config.php has 'load_test_data' => true.
 
 // [cycle_day => [lunch, dinner]]; a string is a meal, ['note' => ...] a note, null an empty slot.
 const TEST_PLAN = [
@@ -23,23 +21,24 @@ const TEST_PLAN = [
     13 => ['Käsefondue', ['note' => 'Auswärts essen']],
     14 => ['Zürcher Geschnetzeltes mit Rösti', 'Birchermüesli'],
 ];
-const UNUSED_MEALS = ['Chili sin Carne', 'Crêpes'];
+const TEST_UNUSED_MEALS = ['Chili sin Carne', 'Crêpes'];
 
-$config = load_config(getenv('MENUPLAN_CONFIG') ?: ROOT_DIR . '/config.php');
-$db = open_db($config['data_dir']);
-if ((int)$db->query('SELECT COUNT(*) FROM meal')->fetchColumn() > 0) {
-    fwrite(STDERR, "The database already contains meals. Delete {$config['data_dir']}/db.sqlite first.\n");
-    exit(1);
-}
-foreach (TEST_PLAN as $cycleDay => $slots) {
-    foreach (array_combine(array_keys(MEAL_TIMES), $slots) as $mealTime => $slot) {
-        if ($slot !== null) {
-            $type = is_array($slot) ? 'note' : 'meal';
-            save_slot($db, $cycleDay, $mealTime, $type, is_array($slot) ? $slot['note'] : $slot);
+/** Loads the test plan if the database has no meals and no slots. Returns whether it loaded. */
+function load_test_data_if_empty(PDO $db): bool
+{
+    $rows = (int)$db->query('SELECT (SELECT COUNT(*) FROM meal) + (SELECT COUNT(*) FROM plan_slot)')->fetchColumn();
+    if ($rows > 0) {
+        return false;
+    }
+    foreach (TEST_PLAN as $cycleDay => $slots) {
+        foreach (array_combine(array_keys(MEAL_TIMES), $slots) as $mealTime => $slot) {
+            if ($slot !== null) {
+                save_slot($db, $cycleDay, $mealTime, is_array($slot) ? 'note' : 'meal', is_array($slot) ? $slot['note'] : $slot);
+            }
         }
     }
+    foreach (TEST_UNUSED_MEALS as $name) {
+        find_or_create_meal($db, $name);
+    }
+    return true;
 }
-foreach (UNUSED_MEALS as $name) {
-    find_or_create_meal($db, $name);
-}
-echo "Test data loaded.\n";

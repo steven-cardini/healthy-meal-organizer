@@ -31,12 +31,12 @@ public/               Document root (the only web-accessible folder)
   sw.js               Service worker (at the root so its scope is /)
   offline.html
   assets/             app.css, app.js (service worker registration), icons/
-src/                  PHP code: app.php (helpers, config, DB, session), calendar.php, repository.php, pages.php
+src/                  PHP code: app.php (helpers, config, DB, session), calendar.php, repository.php, pages.php,
+                      test_data.php (test plan, loaded into an empty DB if config.php has load_test_data = true)
 templates/            HTML templates
 db/schema.sql         Database schema (SSOT)
 data/                 db.sqlite, sessions/ (gitignored, created at runtime; location set by data_dir in config.php)
 tests/smoke.php       Smoke tests
-tests/load_test_data.php  Fills an empty database with a full test plan
 router.php            Router for the PHP built-in dev server
 config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 ```

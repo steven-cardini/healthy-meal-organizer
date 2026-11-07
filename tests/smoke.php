@@ -102,17 +102,14 @@ check('block ends after 15 minutes', !login_blocked($db, '1.2.3.4', $now + 15 * 
 
 // --- Test data ---------------------------------------------------------------
 
-$testConfig = "$tmp/config-testdata.php";
-file_put_contents($testConfig, '<?php return ' . var_export([
-    'password_hash' => password_hash('x', PASSWORD_DEFAULT),
-    'cycle_start_date' => '2026-01-05',
-    'data_dir' => "$tmp/testdata",
-], true) . ';');
-$run = fn(): int => proc_close(proc_open([PHP_BINARY, ROOT_DIR . '/tests/load_test_data.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, null, ['MENUPLAN_CONFIG' => $testConfig]));
-check('test data loads', $run() === 0);
+$count = fn(PDO $db, string $table): int => (int)$db->query("SELECT COUNT(*) FROM $table")->fetchColumn();
 $testDb = open_db("$tmp/testdata");
-check('test data fills 27 of 28 slots', (int)$testDb->query('SELECT COUNT(*) FROM plan_slot')->fetchColumn() === 27);
-check('test data is not loaded twice', $run() === 1);
+check('test data loads into an empty database', load_test_data_if_empty($testDb));
+check('test data fills 27 of 28 slots and 23 meals', $count($testDb, 'plan_slot') === 27 && $count($testDb, 'meal') === 23);
+check('test data is not loaded twice', !load_test_data_if_empty($testDb) && $count($testDb, 'plan_slot') === 27);
+$noteDb = open_db("$tmp/notedata");
+save_slot($noteDb, 1, 'lunch', 'note', 'Eltern kochen');
+check('test data is not loaded if the plan has only a note', !load_test_data_if_empty($noteDb));
 
 // --- HTTP ----------------------------------------------------------------------
 
@@ -286,6 +283,23 @@ for ($i = 0; $i < 5; $i++) {
 request('POST', '/login', ['csrf' => csrf('/login'), 'password' => 'test-password']);
 check('throttled after 5 failures, even with the correct password',
     str_contains(request('GET', '/login')['body'], 'Zu viele Fehlversuche') && redirects_to(request('GET', '/'), '/login'));
+$writeConfig = function (bool $loadTestData) use ($config, $monday, $tmp): void {
+    file_put_contents($config, '<?php return ' . var_export([
+        'password_hash' => password_hash('test-password', PASSWORD_DEFAULT),
+        'cycle_start_date' => $monday->format('Y-m-d'),
+        'data_dir' => "$tmp/http-testdata",
+        'load_test_data' => $loadTestData,
+    ], true) . ';');
+    sleep(3); // opcache.revalidate_freq: the server sees a changed config.php only after 2 s
+};
+$writeConfig(false);
+request('GET', '/login');
+check('no test data without the config setting', is_file("$tmp/http-testdata/db.sqlite")
+    && $count(open_db("$tmp/http-testdata"), 'plan_slot') === 0);
+$writeConfig(true);
+request('GET', '/login');
+check('config setting loads test data on the next request', $count(open_db("$tmp/http-testdata"), 'plan_slot') === 27);
+
 check('no PHP errors in server log', !preg_match('/(Warning|Notice|Deprecated|Fatal)/', file_get_contents("$tmp/server.log")));
 
 proc_terminate($server);

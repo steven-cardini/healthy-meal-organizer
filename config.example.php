@@ -13,4 +13,7 @@ return [
 
     // Folder for db.sqlite and sessions/. Must be writable by PHP and outside public/.
     'data_dir' => __DIR__ . '/data',
+
+    // true: an empty database (no meals, no slots) is filled with a 14-day test plan. For testing only.
+    'load_test_data' => false,
 ];

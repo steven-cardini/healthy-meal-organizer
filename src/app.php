@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__ . '/calendar.php';
 require __DIR__ . '/repository.php';
 require __DIR__ . '/pages.php';
+require __DIR__ . '/test_data.php';
 
 const ROOT_DIR = __DIR__ . '/..';
 const SESSION_LIFETIME = 180 * 86400;

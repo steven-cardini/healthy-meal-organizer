@@ -36,6 +36,9 @@ const ROUTES = [
 
 $config = load_config(getenv('MENUPLAN_CONFIG') ?: ROOT_DIR . '/config.php');
 $db = open_db($config['data_dir']);
+if (($config['load_test_data'] ?? false) === true) {
+    load_test_data_if_empty($db);
+}
 start_session($config['data_dir']);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';

@@ -19,7 +19,7 @@ If `php` is not on the `PATH` (e.g., in agent shells), call it by full path: `/o
 
 - **Local Dev Server:** `php -S localhost:8000 -t public router.php`
 - **Initialize / Reset SQLite Database:** delete `data/db.sqlite`; it is recreated from `db/schema.sql` on the next request
-- **Load Test Data (empty database only):** `php tests/load_test_data.php`
+- **Load Test Data:** set `'load_test_data' => true` in `config.php` and reset the database (see `README.md`)
 - **Automated Tests:** `php tests/smoke.php`
 - **PHP Syntax Check:** `find . -name "*.php" -exec php -l {} \;`
 

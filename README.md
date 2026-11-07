@@ -10,7 +10,14 @@ Requirements: PHP 8.5 with `pdo_sqlite` and `mbstring`; Apache with `mod_rewrite
    - `password_hash`: `php -r 'echo password_hash("YOUR-PASSWORD", PASSWORD_DEFAULT), PHP_EOL;'`
    - `cycle_start_date`: a Monday on which "Woche 1" starts.
    - `data_dir`: keep the default unless the data should live elsewhere (never inside `public/`).
+   - `load_test_data`: see below.
 2. The database `data/db.sqlite` is created from `db/schema.sql` on the first request.
+
+## Test data
+
+With `'load_test_data' => true` in `config.php`, an empty database (no meals, no slots) is filled with a full 14-day test plan on the next request. Works locally and on the server.
+
+To start real usage: set it to `false` (or remove it), then delete `data/db.sqlite`. The next request creates an empty database.
 
 ## Local development
 
@@ -19,12 +26,6 @@ php -S localhost:8000 -t public router.php
 ```
 
 Open <http://localhost:8000>. The session cookie is only marked `Secure` outside the PHP dev server. Safari may still refuse cookies on `http://localhost`; use Chrome or Firefox locally.
-
-Test data (a full 14-day plan, into an empty database only):
-
-```sh
-rm -f data/db.sqlite && php tests/load_test_data.php
-```
 
 Tests (use a temporary data folder and start their own dev server):
 
