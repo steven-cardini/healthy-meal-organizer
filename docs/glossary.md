@@ -11,7 +11,7 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Cycle start date    | Startdatum         | `cycle_start_date`   | Monday on which cycle day 1 falls. Defines the cycle week of every date. | 1 |
 | Cycle week          | Woche 1 / Woche 2  | `cycle_week`         | First or second week of the cycle (1 or 2). | 1 |
 | Cycle day           | –                  | `cycle_day`          | Day within the cycle, 1–14 (1 = Monday of cycle week 1). | 1 |
-| Calendar week       | Kalenderwoche (KW) | –                    | Real week Monday–Sunday. Not the same as the cycle week. | 1 |
+| Calendar week       | Kalenderwoche (KW) | `calendar_week`      | Real week Monday–Sunday (ISO number). Not the same as the cycle week. | 1 |
 | Meal time           | Mahlzeit           | `meal_time`          | Lunch or dinner. | 1 |
 | Lunch               | Mittagessen        | `lunch`              | Midday meal time. | 1 |
 | Dinner              | Abendessen         | `dinner`             | Evening meal time. | 1 |

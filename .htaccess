@@ -1,0 +1,2 @@
+# Safety net: deny everything if the document root is ever set to the repo root instead of public/.
+Require all denied

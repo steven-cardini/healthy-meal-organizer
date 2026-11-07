@@ -30,15 +30,15 @@ Phases 2 and 3 are not specified yet. The MVP must not block them (see [architec
 
 ### Views
 
-- **FR-4** Day view (start page): weekday, date, lunch and dinner. Shows today by default, with buttons for previous day, next day and today.
-- **FR-5** Week view: Monday to Sunday of a calendar week with lunch and dinner, the cycle week (Woche 1/2), and today highlighted. Shows the current week by default, with buttons for previous week, next week and this week.
+- **FR-4** Day view (start page): weekday, date, cycle week, lunch and dinner. Shows today by default, with buttons for previous day, next day and today.
+- **FR-5** Week view: Monday to Sunday of a calendar week with lunch and dinner, the calendar week (KW) and the cycle week (Woche 1/2), and today highlighted. Shows the current week by default, with buttons for previous week, next week and this week.
 - **FR-6** Empty slots are shown as not planned.
 
 ### Editing
 
-- **FR-7** Plan editor: shows all 28 slots of both cycle weeks. Each slot can be set to a meal, a note, or empty.
+- **FR-7** Plan editor: shows all 28 slots of both cycle weeks. Each slot can be set to a meal, a note, or empty (empty text field).
 - **FR-8** When entering a meal, existing meals are suggested. A new name adds a new meal to the meal list.
-- **FR-9** Meal list: shows all meals; meals can be renamed and deleted. A meal used in the plan cannot be deleted.
+- **FR-9** Meal list: shows all meals; meals can be renamed and deleted. A meal used in the plan cannot be deleted. Renaming a meal to the name of another meal shows an error.
 - **FR-10** Meal names are unique (case-insensitive).
 
 ### Access

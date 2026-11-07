@@ -1,0 +1,14 @@
+# Overrides "Require all denied" of the root .htaccess.
+Require all granted
+
+AddType application/manifest+json .webmanifest
+
+RewriteEngine On
+
+# Fallback HTTPS redirect. The X-Forwarded-Proto check avoids a loop behind a TLS-terminating proxy.
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [L]
