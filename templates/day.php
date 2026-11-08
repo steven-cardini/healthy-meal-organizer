@@ -1,12 +1,15 @@
 <?php declare(strict_types=1) ?>
-<hgroup>
-    <h1><?= e(format_long_date($date)) ?></h1>
-    <p><?= $isToday ? 'Heute · ' : '' ?>Woche <?= e($cycleWeek) ?></p>
+<hgroup class="day-title">
+    <?php if ($relativeDay !== null): ?>
+        <p class="relative-day"><?= e($relativeDay) ?></p>
+    <?php endif ?>
+    <h1><?= e(weekday($date)) ?></h1>
+    <p><?= e(format_date($date)) ?> · Woche <?= e($cycleWeek) ?></p>
 </hgroup>
 <?php foreach (MEAL_TIMES as $mealTime => $label): ?>
-    <article>
-        <header><?= e($label) ?></header>
-        <p class="meal"><?= slot_html($plan, $cycleDay, $mealTime) ?></p>
+    <article class="meal-time <?= e($mealTime) ?>">
+        <header><h2><?= e($label) ?></h2></header>
+        <div class="meal"><?= slot_html($plan, $cycleDay, $mealTime) ?></div>
     </article>
 <?php endforeach ?>
 <nav class="pager">

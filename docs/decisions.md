@@ -27,6 +27,7 @@
 | D-23 | `meat` means all meat except poultry. `protein_source` has a value `none`, which is discouraged. | Common Swiss split "Fleisch / Geflügel / Fisch". Rejected: `beef_pork` (too narrow), `red_meat` (veal is not red meat). |
 | D-24 | Tag values are lowercase snake_case codes with German UI labels. The meal form uses radio groups without a preselected value. | Consistent with `lunch` / `dinner`. All options are visible and need one tap; nothing is saved by accident. Rejected: drop-downs (options hidden), default values. |
 | D-25 | The day and week view only show hints you can act on (FR-14). The other tags are shown in the meal form only. | Keeps the views short. Protein, digestibility, kid suitability and shelf life matter for planning, not for cooking. |
+| D-26 | Hints are shown as a list of chips below the meal name, each with an icon and a colour per kind (vegetables, prep time, leftovers). | Clearly separated from the meal name, quick to scan. The text stays readable on its own, so colour and icon are never the only cue. Rejected: grey text after the name. |
 
 ## Open points (before or during implementation)
 

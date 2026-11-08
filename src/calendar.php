@@ -58,12 +58,23 @@ function next_slot(int $cycleDay, string $mealTime): array
 /** e.g. "Samstag, 7. November 2026" */
 function format_long_date(DateTimeImmutable $date): string
 {
-    return WEEKDAYS[(int)$date->format('N')] . ', ' . $date->format('j') . '. '
-        . MONTHS[(int)$date->format('n')] . ' ' . $date->format('Y');
+    return weekday($date) . ', ' . format_date($date);
+}
+
+/** e.g. "7. November 2026" */
+function format_date(DateTimeImmutable $date): string
+{
+    return $date->format('j') . '. ' . MONTHS[(int)$date->format('n')] . ' ' . $date->format('Y');
+}
+
+/** e.g. "Samstag" */
+function weekday(DateTimeImmutable $date): string
+{
+    return WEEKDAYS[(int)$date->format('N')];
 }
 
 /** e.g. "Sa 7.11." */
 function format_short_date(DateTimeImmutable $date): string
 {
-    return mb_substr(WEEKDAYS[(int)$date->format('N')], 0, 2) . ' ' . $date->format('j.n.');
+    return mb_substr(weekday($date), 0, 2) . ' ' . $date->format('j.n.');
 }

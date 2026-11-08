@@ -9,7 +9,12 @@ function day_page(PDO $db, array $config): never
     $cycleDay = cycle_day($date, parse_date($config['cycle_start_date']));
     render('day', format_long_date($date), [
         'date' => $date,
-        'isToday' => $date == $today,
+        'relativeDay' => match (true) {
+            $date == $today => 'Heute',
+            $date == add_days($today, 1) => 'Morgen',
+            $date == add_days($today, -1) => 'Gestern',
+            default => null,
+        },
         'cycleWeek' => cycle_week($cycleDay),
         'cycleDay' => $cycleDay,
         'plan' => load_plan($db),

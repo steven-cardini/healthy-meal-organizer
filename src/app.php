@@ -192,25 +192,28 @@ function slot_html(array $plan, int $cycleDay, string $mealTime): string
     if ($slot['meal'] === null) {
         return '<em>' . e($slot['note']) . '</em>';
     }
-    $hints = slot_hints($plan, $cycleDay, $mealTime);
-    return e($slot['meal']) . ($hints === [] ? '' : '<small class="hints">' . e(implode(' · ', $hints)) . '</small>');
+    $hints = '';
+    foreach (slot_hints($plan, $cycleDay, $mealTime) as $kind => $label) {
+        $hints .= '<li class="hint-' . e($kind) . '">' . e($label) . '</li>';
+    }
+    return e($slot['meal']) . ($hints === '' ? '' : '<ul class="hints" aria-label="Hinweise">' . $hints . '</ul>');
 }
 
-/** @return list<string> see docs/requirements.md#meal-tags (FR-14) */
+/** @return array<string, string> kind => label, see docs/requirements.md#meal-tags (FR-14) */
 function slot_hints(array $plan, int $cycleDay, string $mealTime): array
 {
     $slot = $plan[$cycleDay][$mealTime];
     $sameMealIn = fn(array $neighbour): bool => $slot['leftovers'] === 'reheats_well'
         && ($plan[$neighbour[0]][$neighbour[1]]['meal_id'] ?? null) === $slot['meal_id'];
     if ($sameMealIn(previous_slot($cycleDay, $mealTime))) {
-        return ['Reste'];
+        return ['leftovers' => 'Reste'];
     }
-    $hints = $sameMealIn(next_slot($cycleDay, $mealTime)) ? ['Doppelte Menge kochen'] : [];
+    $hints = $sameMealIn(next_slot($cycleDay, $mealTime)) ? ['cook_double' => 'Doppelte Menge kochen'] : [];
     if ($slot['prep_time'] === 'slow') {
-        $hints[] = 'Lange Zubereitung';
+        $hints['slow'] = 'Lange Zubereitung';
     }
     if ($slot['vegetable_level'] !== 'main_component') {
-        $hints[] = MEAL_TAGS['vegetable_level']['values'][$slot['vegetable_level']];
+        $hints[$slot['vegetable_level']] = MEAL_TAGS['vegetable_level']['values'][$slot['vegetable_level']];
     }
     return $hints;
 }
