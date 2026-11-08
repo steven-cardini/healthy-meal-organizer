@@ -32,9 +32,9 @@ Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [ar
 
 ### Views
 
-- **FR-4** Day view (start page): weekday, date, cycle week, lunch and dinner. Today, tomorrow and yesterday are labelled *Heute*, *Morgen*, *Gestern*. Shows today by default, with buttons for previous day, next day and today.
-- **FR-5** Week view: Monday to Sunday of a calendar week with lunch and dinner, the calendar week (KW) and the cycle week (Woche 1/2), and today highlighted. Shows the current week by default, with buttons for previous week, next week and this week.
-- **FR-6** Empty slots are shown as not planned.
+- **FR-4** Day view (start page): weekday, date, cycle week, lunch and dinner. Today, tomorrow and yesterday are labelled *Heute*, *Morgen*, *Gestern*. Shows today by default, with buttons for previous day, next day and (on other days) today.
+- **FR-5** Week view: Monday to Sunday of a calendar week with lunch and dinner, the calendar week (KW) and the cycle week (Woche 1/2), and today highlighted. Shows the current week by default, with buttons for previous week, next week and (in other weeks) this week.
+- **FR-6** Empty slots are shown as not planned, with a link to the slot in the plan editor.
 
 ### Editing
 

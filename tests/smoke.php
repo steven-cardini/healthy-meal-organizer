@@ -266,16 +266,20 @@ check('session ID changes on login', $cookies['menuplan'] !== $sessionBefore);
 check('login page redirects when logged in', redirects_to(request('GET', '/login'), '/'));
 
 $day = request('GET', '/');
+$otherDay = request('GET', '/?date=2026-12-24')['body'];
 check('day view shows today in Woche 1', $day['status'] === 200
     && str_contains($day['body'], '<p class="relative-day">Heute</p>')
     && str_contains($day['body'], '<h1>' . weekday(today()) . '</h1>')
     && str_contains($day['body'], format_date(today()) . ' · Woche 1'));
-check('empty slots shown as not planned', substr_count($day['body'], 'Nicht geplant') === 2);
+check('empty slots shown as not planned, with a link to the plan editor',
+    substr_count($day['body'], 'Nicht geplant') === 2 && str_contains($day['body'], 'href="/plan#slot-'));
+check('today button and current menu item swap on other days',
+    !str_contains($day['body'], 'class="secondary">Heute</a>') && str_contains($day['body'], 'aria-current="page">Heute')
+    && str_contains($otherDay, 'class="secondary">Heute</a>') && !str_contains($otherDay, 'aria-current="page"'));
 check('session cookie renewed on each request', str_contains(header_value($day, 'set-cookie'), 'Max-Age=15552000'));
 check('previous/next day links', str_contains($day['body'], '/?date=' . add_days(today(), -1)->format('Y-m-d'))
     && str_contains($day['body'], '/?date=' . add_days(today(), 1)->format('Y-m-d')));
 check('invalid date redirects to today', redirects_to(request('GET', '/?date=2026-02-30'), '/'));
-$otherDay = request('GET', '/?date=2026-12-24')['body'];
 check('other days can be shown', str_contains($otherDay, '<h1>Donnerstag</h1>')
     && str_contains($otherDay, '24. Dezember 2026 · Woche') && !str_contains($otherDay, 'relative-day'));
 check('tomorrow and yesterday are labelled',
@@ -318,11 +322,13 @@ check('day view shows the meal (HTML-escaped) with hints', str_contains($day['bo
 request('POST', '/plan/slot', ['csrf' => $token, 'cycle_day' => $cycleDay, 'meal_time' => 'dinner', 'type' => 'note',
     'text' => 'Eltern kochen']);
 $week = request('GET', '/week');
-check('week view shows the note and the meal', str_contains($week['body'], '<em>Eltern kochen</em>')
+check('week view shows the note and the meal', str_contains($week['body'], '<em class="note">Eltern kochen</em>')
     && str_contains($week['body'], 'Rösti &lt;script&gt;'));
 check('week view shows KW and Woche 1',
     str_contains($week['body'], 'KW ' . (int)today()->format('W') . ' · Woche 1'));
 check('week view highlights today', substr_count($week['body'], 'class="today"') === 1);
+check('this week button only in other weeks', !str_contains($week['body'], 'Diese Woche</a>')
+    && str_contains(request('GET', '/week?date=' . add_days($monday, 7)->format('Y-m-d'))['body'], 'Diese Woche</a>'));
 check('next week is Woche 2',
     str_contains(request('GET', '/week?date=' . add_days($monday, 7)->format('Y-m-d'))['body'], '· Woche 2'));
 check('week after next is Woche 1 again',

@@ -38,7 +38,7 @@ $menu = ['day' => ['/', 'Heute'], 'week' => ['/week', 'Woche'], 'plan' => ['/pla
     <footer class="container">
         <form method="post" action="/logout">
             <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-            <button type="submit" class="secondary outline">Abmelden</button>
+            <button type="submit" class="secondary outline logout">Abmelden</button>
         </form>
     </footer>
 <?php endif ?>

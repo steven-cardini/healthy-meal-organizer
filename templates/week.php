@@ -27,6 +27,8 @@
 </div>
 <nav class="pager">
     <a href="/week?date=<?= e($previous->format('Y-m-d')) ?>" role="button" class="secondary outline">← Vorwoche</a>
-    <a href="/week" role="button" class="secondary">Diese Woche</a>
+    <?php if (!$isCurrentWeek): ?>
+        <a href="/week" role="button" class="secondary">Diese Woche</a>
+    <?php endif ?>
     <a href="/week?date=<?= e($next->format('Y-m-d')) ?>" role="button" class="secondary outline">Nächste →</a>
 </nav>

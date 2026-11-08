@@ -164,7 +164,7 @@ function redirect(string $location): never
     exit;
 }
 
-/** $nav: active menu item ('day', 'week', 'plan', 'meals'); null hides the menu. */
+/** $nav: active menu item ('day', 'week', 'plan', 'meals'), '' for none; null hides the menu. */
 function render(string $template, string $title, array $vars = [], ?string $nav = null, int $status = 200): never
 {
     http_response_code($status);
@@ -187,10 +187,11 @@ function slot_html(array $plan, int $cycleDay, string $mealTime): string
 {
     $slot = $plan[$cycleDay][$mealTime] ?? null;
     if ($slot === null) {
-        return '<span class="muted">Nicht geplant</span>';
+        return '<span class="muted">Nicht geplant</span> <a href="/plan#' . e("slot-$cycleDay-$mealTime")
+            . '" class="plan-slot">Planen</a>';
     }
     if ($slot['meal'] === null) {
-        return '<em>' . e($slot['note']) . '</em>';
+        return '<em class="note">' . e($slot['note']) . '</em>';
     }
     $hints = '';
     foreach (slot_hints($plan, $cycleDay, $mealTime) as $kind => $label) {

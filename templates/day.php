@@ -14,6 +14,8 @@
 <?php endforeach ?>
 <nav class="pager">
     <a href="/?date=<?= e($previous->format('Y-m-d')) ?>" role="button" class="secondary outline">← Vortag</a>
-    <a href="/" role="button" class="secondary">Heute</a>
+    <?php if (!$isToday): ?>
+        <a href="/" role="button" class="secondary">Heute</a>
+    <?php endif ?>
     <a href="/?date=<?= e($next->format('Y-m-d')) ?>" role="button" class="secondary outline">Folgetag →</a>
 </nav>

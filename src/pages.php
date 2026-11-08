@@ -7,10 +7,12 @@ function day_page(PDO $db, array $config): never
     $date = date_param('/');
     $today = today();
     $cycleDay = cycle_day($date, parse_date($config['cycle_start_date']));
+    $isToday = $date == $today;
     render('day', format_long_date($date), [
         'date' => $date,
+        'isToday' => $isToday,
         'relativeDay' => match (true) {
-            $date == $today => 'Heute',
+            $isToday => 'Heute',
             $date == add_days($today, 1) => 'Morgen',
             $date == add_days($today, -1) => 'Gestern',
             default => null,
@@ -20,7 +22,7 @@ function day_page(PDO $db, array $config): never
         'plan' => load_plan($db),
         'previous' => add_days($date, -1),
         'next' => add_days($date, 1),
-    ], 'day');
+    ], $isToday ? 'day' : '');
 }
 
 function week_page(PDO $db, array $config): never
@@ -37,6 +39,7 @@ function week_page(PDO $db, array $config): never
         'days' => $days,
         'plan' => $plan,
         'today' => today(),
+        'isCurrentWeek' => $monday == monday_of(today()),
         'calendarWeek' => (int)$monday->format('W'),
         'cycleWeek' => cycle_week(cycle_day($monday, $start)),
         'previous' => add_days($monday, -7),
