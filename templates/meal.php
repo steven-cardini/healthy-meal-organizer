@@ -41,7 +41,7 @@ if ($slot !== null) {
                 <?php if (isset($definition['hint'])): ?><small class="muted"><?= e($definition['hint']) ?></small><?php endif ?>
             </legend>
             <?php foreach ($definition['values'] as $value => $label): ?>
-                <label>
+                <label class="<?= e(tag_class($tag, $value)) ?>">
                     <input type="radio" name="<?= e($tag) ?>" value="<?= e($value) ?>" required
                         <?= ($meal[$tag] ?? null) === $value ? 'checked' : '' ?>>
                     <?= e($label) ?>

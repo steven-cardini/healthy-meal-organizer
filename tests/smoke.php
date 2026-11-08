@@ -65,7 +65,6 @@ check('slot before day 1 lunch is day 14 dinner', previous_slot(1, 'lunch') === 
 check('slot after day 14 dinner is day 1 lunch', next_slot(14, 'dinner') === [1, 'lunch']
     && next_slot(5, 'lunch') === [5, 'dinner'] && next_slot(5, 'dinner') === [6, 'lunch']);
 check('German long date', format_long_date(parse_date('2026-11-07')) === 'Samstag, 7. November 2026');
-check('German short date', format_short_date(parse_date('2026-03-02')) === 'Mo 2.3.');
 check('German date without weekday', format_date(parse_date('2026-11-07')) === '7. November 2026');
 check('today uses Europe/Zurich',
     today()->format('Y-m-d') === (new DateTimeImmutable('now', new DateTimeZone('Europe/Zurich')))->format('Y-m-d'));
@@ -139,15 +138,27 @@ save_slot($hintDb, 1, 'lunch', $soup, null);
 save_slot($hintDb, 2, 'lunch', $pizza, null);
 save_slot($hintDb, 2, 'dinner', $pizza, null);
 save_slot($hintDb, 3, 'lunch', $schnitzel, null);
+save_slot($hintDb, 3, 'dinner', $schnitzel, null);
 $hintPlan = load_plan($hintDb);
 check('reheatable meal in the next slot: cook double (wraps from day 14 to day 1)',
-    slot_hints($hintPlan, 14, 'dinner') === ['cook_double' => 'Doppelte Menge kochen', 'slow' => 'Lange Zubereitung']);
-check('same reheatable meal in the slot before: leftovers only', slot_hints($hintPlan, 1, 'lunch') === ['leftovers' => 'Reste']);
+    slot_hints($hintPlan, 14, 'dinner') === ['cook_double' => 'Doppelte Menge für morgen Mittag', 'slow' => 'Lange Zubereitung']);
+check('same reheatable meal in the slot before: leftovers only',
+    slot_hints($hintPlan, 1, 'lunch') === ['leftovers' => 'Reste vom Vorabend']);
 check('same meal that must be eaten fresh: no leftover hints', slot_hints($hintPlan, 2, 'lunch') === ['raw_veggies_needed' => 'Rohkost dazu']
     && slot_hints($hintPlan, 2, 'dinner') === ['raw_veggies_needed' => 'Rohkost dazu']);
-check('vegetable side dish hint', slot_hints($hintPlan, 3, 'lunch') === ['side_dish' => 'Gemüsebeilage kochen']);
-check('hints are shown below the meal', slot_html($hintPlan, 14, 'dinner') === 'Suppe<ul class="hints" aria-label="Hinweise">'
-    . '<li class="hint-cook_double">Doppelte Menge kochen</li><li class="hint-slow">Lange Zubereitung</li></ul>');
+check('lunch and dinner the same: cook double for the evening, vegetable side dish hint',
+    slot_hints($hintPlan, 3, 'lunch') === ['cook_double' => 'Doppelte Menge für den Abend', 'side_dish' => 'Gemüsebeilage kochen']
+    && slot_hints($hintPlan, 3, 'dinner') === ['leftovers' => 'Reste vom Mittagessen']);
+check('week view: hints below the meal, no tags', slot_html($hintPlan, 14, 'dinner') === '<p class="meal-name">Suppe</p>'
+    . '<ul class="hints" aria-label="Hinweise"><li class="hint-cook_double">Doppelte Menge für morgen Mittag</li>'
+    . '<li class="hint-slow">Lange Zubereitung</li></ul>');
+$dayHtml = slot_html($hintPlan, 14, 'dinner', true);
+check('day view: protein avatar, summary tags with label and icon class, hints', str_contains($dayHtml,
+    '<span class="avatar tag-protein_source-meat" aria-hidden="true"></span>')
+    && str_contains($dayHtml, '<li class="tag-prep_time-slow"><span class="visually-hidden">Zubereitungszeit: </span>'
+        . 'Lang (&gt; 40 Min.)</li>')
+    && substr_count($dayHtml, '<li class="tag-') === count(SUMMARY_TAGS)
+    && str_contains($dayHtml, '<li class="hint-slow">Lange Zubereitung</li>'));
 
 $now = 1_000_000;
 for ($i = 0; $i < 4; $i++) {
@@ -167,7 +178,7 @@ check('test data loads into an empty database', load_test_data_if_empty($testDb)
 check('test data fills 27 of 28 slots and 23 meals', $count($testDb, 'plan_slot') === 27 && $count($testDb, 'meal') === 23);
 $testPlan = load_plan($testDb);
 check('test data has a leftover pair (Minestrone)', isset(slot_hints($testPlan, 8, 'dinner')['cook_double'])
-    && slot_hints($testPlan, 9, 'lunch') === ['leftovers' => 'Reste']);
+    && slot_hints($testPlan, 9, 'lunch') === ['leftovers' => 'Reste vom Vorabend']);
 check('test data is not loaded twice', !load_test_data_if_empty($testDb) && $count($testDb, 'plan_slot') === 27);
 $noteDb = open_db("$tmp/notedata");
 save_slot($noteDb, 1, 'lunch', null, 'Eltern kochen');
@@ -274,11 +285,15 @@ check('day view shows today in Woche 1', $day['status'] === 200
 check('empty slots shown as not planned, with a link to the plan editor',
     substr_count($day['body'], 'Nicht geplant') === 2 && str_contains($day['body'], 'href="/plan#slot-'));
 check('today button and current menu item swap on other days',
-    !str_contains($day['body'], 'class="secondary">Heute</a>') && str_contains($day['body'], 'aria-current="page">Heute')
-    && str_contains($otherDay, 'class="secondary">Heute</a>') && !str_contains($otherDay, 'aria-current="page"'));
+    !str_contains($day['body'], 'class="current">Heute</a>') && str_contains($day['body'], 'href="/" aria-current="page"')
+    && str_contains($otherDay, 'class="current">Heute</a>') && !str_contains($otherDay, 'aria-current="page"'));
+check('CSS and JS URLs change with the file', str_contains($day['body'],
+    'href="/assets/app.css?v=' . filemtime(ROOT_DIR . '/public/assets/app.css') . '"')
+    && str_contains($day['body'], 'src="/assets/app.js?v=' . filemtime(ROOT_DIR . '/public/assets/app.js') . '"'));
 check('session cookie renewed on each request', str_contains(header_value($day, 'set-cookie'), 'Max-Age=15552000'));
-check('previous/next day links', str_contains($day['body'], '/?date=' . add_days(today(), -1)->format('Y-m-d'))
-    && str_contains($day['body'], '/?date=' . add_days(today(), 1)->format('Y-m-d')));
+check('previous/next day links (swipe targets)',
+    str_contains($day['body'], 'href="/?date=' . add_days(today(), -1)->format('Y-m-d') . '" rel="prev"')
+    && str_contains($day['body'], 'href="/?date=' . add_days(today(), 1)->format('Y-m-d') . '" rel="next"'));
 check('invalid date redirects to today', redirects_to(request('GET', '/?date=2026-02-30'), '/'));
 check('other days can be shown', str_contains($otherDay, '<h1>Donnerstag</h1>')
     && str_contains($otherDay, '24. Dezember 2026 · Woche') && !str_contains($otherDay, 'relative-day'));
@@ -315,9 +330,10 @@ check('missing tag: form shown again with the error and the entered values', $re
 check('saving the new meal fills the slot', redirects_to(request('POST', '/meals/new',
     ['csrf' => $token, 'cycle_day' => $cycleDay, 'meal_time' => 'lunch'] + $roesti), "/plan#slot-$cycleDay-lunch"));
 $day = request('GET', '/');
-check('day view shows the meal (HTML-escaped) with hints', str_contains($day['body'],
-    'Rösti &lt;script&gt;x&lt;/script&gt;<ul class="hints" aria-label="Hinweise"><li class="hint-slow">Lange Zubereitung</li>'
-    . '<li class="hint-side_dish">Gemüsebeilage kochen</li></ul>')
+check('day view shows the meal (HTML-escaped) with tags and hints',
+    str_contains($day['body'], '<p class="meal-name">Rösti &lt;script&gt;x&lt;/script&gt;</p><ul class="tags"')
+    && str_contains($day['body'], '<ul class="hints" aria-label="Hinweise"><li class="hint-slow">Lange Zubereitung</li>'
+        . '<li class="hint-side_dish">Gemüsebeilage kochen</li></ul>')
     && !str_contains($day['body'], '<script>x'));
 request('POST', '/plan/slot', ['csrf' => $token, 'cycle_day' => $cycleDay, 'meal_time' => 'dinner', 'type' => 'note',
     'text' => 'Eltern kochen']);
@@ -326,7 +342,9 @@ check('week view shows the note and the meal', str_contains($week['body'], '<em 
     && str_contains($week['body'], 'Rösti &lt;script&gt;'));
 check('week view shows KW and Woche 1',
     str_contains($week['body'], 'KW ' . (int)today()->format('W') . ' · Woche 1'));
-check('week view highlights today', substr_count($week['body'], 'class="today"') === 1);
+check('week view highlights today', substr_count($week['body'], 'aria-current="date"') === 1);
+check('week view shows hints but no tags', str_contains($week['body'], '<li class="hint-slow">Lange Zubereitung</li>')
+    && !str_contains($week['body'], 'class="tags"'));
 check('this week button only in other weeks', !str_contains($week['body'], 'Diese Woche</a>')
     && str_contains(request('GET', '/week?date=' . add_days($monday, 7)->format('Y-m-d'))['body'], 'Diese Woche</a>'));
 check('next week is Woche 2',
@@ -358,6 +376,7 @@ $meals = request('GET', '/meals');
 preg_match_all('~href="/meals/edit\?id=(\d+)"~', $meals['body'], $match);
 check('meal list links both meals and shows their uses', $meals['status'] === 200 && count($match[1]) === 2
     && str_contains($meals['body'], '1× im Plan') && str_contains($meals['body'], 'Nicht im Plan')
+    && substr_count($meals['body'], '<ul class="tags"') === 2
     && str_contains($meals['body'], 'href="/meals/new"'));
 [$roestiId, $spaghettiId] = $match[1];
 $edit = request('GET', "/meals/edit?id=$roestiId");
@@ -375,8 +394,9 @@ check('save name and tags', redirects_to(request('POST', '/meals/edit', ['csrf' 
     + meal_input('Rösti', ['vegetable_level' => 'raw_veggies_needed'])), "/meals#meal-$roestiId"));
 check('saved message shown at the meal',
     (bool)preg_match("/id=\"meal-$roestiId\".*?Gespeichert\..*?<\/li>/s", request('GET', '/meals')['body']));
-check('day view shows the new name and hints', str_contains(request('GET', '/')['body'],
-    '>Rösti<ul class="hints" aria-label="Hinweise"><li class="hint-raw_veggies_needed">Rohkost dazu</li></ul>'));
+$day = request('GET', '/')['body'];
+check('day view shows the new name and hints', str_contains($day, '<p class="meal-name">Rösti</p>')
+    && str_contains($day, '<ul class="hints" aria-label="Hinweise"><li class="hint-raw_veggies_needed">Rohkost dazu</li></ul>'));
 check('used meal cannot be deleted',
     redirects_to(request('POST', '/meals/delete', ['csrf' => $token, 'id' => $roestiId]), "/meals/edit?id=$roestiId")
     && str_contains(request('GET', "/meals/edit?id=$roestiId")['body'], 'kann nicht gelöscht werden'));

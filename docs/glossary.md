@@ -23,7 +23,7 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Not planned         | Nicht geplant      | –                    | Display text for an empty slot. | 1 |
 | Day view            | Heute / Tag        | `day`                | Page with the meals of one day (default: today). | 1 |
 | Week view           | Woche              | `week`               | Page with the meals of one calendar week (default: current week). | 1 |
-| Plan editor         | Plan bearbeiten    | `plan`               | Page to fill the 28 slots. | 1 |
+| Plan editor         | Plan bearbeiten    | `plan`               | Page to fill the 28 slots. Tab label: *Plan*. | 1 |
 | Household           | Haushalt           | –                    | The group of users sharing one plan and one password. | 1 |
 | Shared password     | Passwort           | `password_hash`      | The single household password. | 1 |
 | Log in / Log out    | Anmelden / Abmelden | `login` / `logout`  | Start / end a session on a device. | 1 |
@@ -36,6 +36,7 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Leftovers           | Reste              | `leftovers`          | Whether the cooked meal reheats well the next day. | 2 |
 | Vegetable level     | Gemüse             | `vegetable_level`    | Whether a meal contains enough vegetables. | 2 |
 | Hint                | –                  | `slot_hints`         | Short note below a meal in the day and week view, e.g. "Rohkost dazu". | 2 |
+| Summary tags        | –                  | `SUMMARY_TAGS`       | Tags shown in the day view and the meal list: protein source, prep time, kid suitability. | 2 |
 | Swap                | Tauschen           | `swap`               | One-time replacement of the planned meal on a specific date. | 4 |
 | Recipe              | Rezept             | `recipe`             | Ingredients and preparation steps of a meal. | 4 |
 | Ingredient          | Zutat              | `ingredient`         | Food item with quantity and unit in a recipe. | 4 |

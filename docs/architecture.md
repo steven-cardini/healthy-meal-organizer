@@ -16,7 +16,7 @@ Browser / PWA ──HTTPS──▶ Apache (docroot = public/) ──▶ public/i
 |---------|-------------------------------------------------------------------------------------------------|
 | Backend | Plain PHP 8.5 (`declare(strict_types=1)`), no framework, no Composer                            |
 | Data    | SQLite via PDO. `data/db.sqlite` is created from `db/schema.sql` on the first request           |
-| UI      | Server-rendered HTML templates, plain forms, Pico.css v2 (jade theme, CDN, version-pinned, SRI). No JavaScript except the service worker registration |
+| UI      | Server-rendered HTML templates, plain forms, Pico.css v2 (jade theme, CDN, version-pinned, SRI) with warm colours overridden in `app.css`. JavaScript only for the service worker registration and swipe navigation (D-28); every page works without it |
 | PWA     | Web app manifest and a small service worker                                                     |
 | Hosting | Apache with `mod_rewrite`, HTTPS                                                                |
 
@@ -30,7 +30,7 @@ public/               Document root (the only web-accessible folder)
   manifest.webmanifest
   sw.js               Service worker (at the root so its scope is /)
   offline.html
-  assets/             app.css, app.js (service worker registration), icons/
+  assets/             app.css (theme, tag icons), app.js (service worker registration, swipe, slide direction), icons/
 src/                  PHP code: app.php (helpers, config, DB, session), calendar.php, repository.php, pages.php,
                       test_data.php (test plan, loaded into an empty DB if config.php has load_test_data = true)
 templates/            HTML templates

@@ -3,32 +3,26 @@
     <h1>KW <?= e($calendarWeek) ?> · Woche <?= e($cycleWeek) ?></h1>
     <p><?= e($days[0]['date']->format('j.n.Y')) ?> – <?= e($days[6]['date']->format('j.n.Y')) ?></p>
 </hgroup>
-<div class="overflow-auto">
-    <table class="week">
-        <thead>
-        <tr>
-            <th scope="col">Tag</th>
-            <?php foreach (MEAL_TIMES as $label): ?>
-                <th scope="col"><?= e($label) ?></th>
-            <?php endforeach ?>
-        </tr>
-        </thead>
-        <tbody>
-        <?php foreach ($days as $day): ?>
-            <tr<?= $day['date'] == $today ? ' class="today" aria-current="date"' : '' ?>>
-                <th scope="row"><a href="/?date=<?= e($day['date']->format('Y-m-d')) ?>"><?= e(format_short_date($day['date'])) ?></a></th>
-                <?php foreach (array_keys(MEAL_TIMES) as $mealTime): ?>
-                    <td><?= slot_html($plan, $day['cycleDay'], $mealTime) ?></td>
-                <?php endforeach ?>
-            </tr>
+<?php foreach ($days as $day): ?>
+    <?php $isToday = $day['date'] == $today ?>
+    <article class="week-day"<?= $isToday ? ' aria-current="date"' : '' ?>>
+        <h2>
+            <a href="/?date=<?= e($day['date']->format('Y-m-d')) ?>"><?= e(weekday($day['date'])) ?>
+                <span><?= e($day['date']->format('j.n.')) ?></span></a>
+            <?php if ($isToday): ?><span class="relative-day">Heute</span><?php endif ?>
+        </h2>
+        <?php foreach (MEAL_TIMES as $mealTime => $label): ?>
+            <div class="week-slot <?= e($mealTime) ?>">
+                <h3><span class="visually-hidden"><?= e($label) ?></span></h3>
+                <div><?= slot_html($plan, $day['cycleDay'], $mealTime) ?></div>
+            </div>
         <?php endforeach ?>
-        </tbody>
-    </table>
-</div>
+    </article>
+<?php endforeach ?>
 <nav class="pager">
-    <a href="/week?date=<?= e($previous->format('Y-m-d')) ?>" role="button" class="secondary outline">← Vorwoche</a>
+    <a href="/week?date=<?= e($previous->format('Y-m-d')) ?>" rel="prev">← Vorwoche</a>
     <?php if (!$isCurrentWeek): ?>
-        <a href="/week" role="button" class="secondary">Diese Woche</a>
+        <a href="/week" class="current">Diese Woche</a>
     <?php endif ?>
-    <a href="/week?date=<?= e($next->format('Y-m-d')) ?>" role="button" class="secondary outline">Nächste →</a>
+    <a href="/week?date=<?= e($next->format('Y-m-d')) ?>" rel="next">Nächste →</a>
 </nav>

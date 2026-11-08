@@ -40,6 +40,9 @@ const MEAL_TAGS = [
     ]],
 ];
 
+/** Tags shown in the day view and the meal list (docs/decisions.md D-25). */
+const SUMMARY_TAGS = ['protein_source', 'prep_time', 'child_factor'];
+
 /** Invalid user input; the message is shown in the UI. */
 final class UserError extends RuntimeException
 {
@@ -182,22 +185,58 @@ function render_error(int $status, string $message): never
     render('error', 'Fehler', ['message' => $message], null, $status);
 }
 
-/** HTML for a slot as shown in the day and week view. $plan: see load_plan(). */
-function slot_html(array $plan, int $cycleDay, string $mealTime): string
+/** URL of a file in public/ that changes when the file changes, so browsers never use an outdated copy. */
+function asset_url(string $path): string
+{
+    return $path . '?v=' . filemtime(ROOT_DIR . '/public' . $path);
+}
+
+/**
+ * HTML for a slot as shown in the day and week view. $plan: see load_plan().
+ * $withTags: day view, adds the protein avatar and SUMMARY_TAGS (docs/decisions.md D-25).
+ */
+function slot_html(array $plan, int $cycleDay, string $mealTime, bool $withTags = false): string
 {
     $slot = $plan[$cycleDay][$mealTime] ?? null;
     if ($slot === null) {
-        return '<span class="muted">Nicht geplant</span> <a href="/plan#' . e("slot-$cycleDay-$mealTime")
-            . '" class="plan-slot">Planen</a>';
+        return '<a href="/plan#' . e("slot-$cycleDay-$mealTime") . '" class="unplanned">Nicht geplant <span>+ Planen</span></a>';
     }
     if ($slot['meal'] === null) {
         return '<em class="note">' . e($slot['note']) . '</em>';
     }
+    $name = '<p class="meal-name">' . e($slot['meal']) . '</p>';
     $hints = '';
     foreach (slot_hints($plan, $cycleDay, $mealTime) as $kind => $label) {
         $hints .= '<li class="hint-' . e($kind) . '">' . e($label) . '</li>';
     }
-    return e($slot['meal']) . ($hints === '' ? '' : '<ul class="hints" aria-label="Hinweise">' . $hints . '</ul>');
+    $hints = $hints === '' ? '' : '<ul class="hints" aria-label="Hinweise">' . $hints . '</ul>';
+    if (!$withTags) {
+        return $name . $hints;
+    }
+    return '<div class="meal">' . avatar_html($slot['protein_source']) . '<div>' . $name . tags_html($slot) . '</div>'
+        . $hints . '</div>';
+}
+
+/** Values of SUMMARY_TAGS with their icons. $meal: row with these tag columns. */
+function tags_html(array $meal): string
+{
+    $items = '';
+    foreach (SUMMARY_TAGS as $tag) {
+        $items .= '<li class="' . e(tag_class($tag, $meal[$tag])) . '"><span class="visually-hidden">'
+            . e(MEAL_TAGS[$tag]['label']) . ': </span>' . e(MEAL_TAGS[$tag]['values'][$meal[$tag]]) . '</li>';
+    }
+    return '<ul class="tags" aria-label="Eigenschaften">' . $items . '</ul>';
+}
+
+function avatar_html(string $proteinSource): string
+{
+    return '<span class="avatar ' . e(tag_class('protein_source', $proteinSource)) . '" aria-hidden="true"></span>';
+}
+
+/** CSS class that shows the icon of a tag value (public/assets/app.css). */
+function tag_class(string $tag, string $value): string
+{
+    return "tag-$tag-$value";
 }
 
 /** @return array<string, string> kind => label, see docs/requirements.md#meal-tags (FR-14) */
@@ -206,10 +245,14 @@ function slot_hints(array $plan, int $cycleDay, string $mealTime): array
     $slot = $plan[$cycleDay][$mealTime];
     $sameMealIn = fn(array $neighbour): bool => $slot['leftovers'] === 'reheats_well'
         && ($plan[$neighbour[0]][$neighbour[1]]['meal_id'] ?? null) === $slot['meal_id'];
-    if ($sameMealIn(previous_slot($cycleDay, $mealTime))) {
-        return ['leftovers' => 'Reste'];
+    $previous = previous_slot($cycleDay, $mealTime);
+    if ($sameMealIn($previous)) {
+        return ['leftovers' => $previous[1] === 'lunch' ? 'Reste vom Mittagessen' : 'Reste vom Vorabend'];
     }
-    $hints = $sameMealIn(next_slot($cycleDay, $mealTime)) ? ['cook_double' => 'Doppelte Menge kochen'] : [];
+    $next = next_slot($cycleDay, $mealTime);
+    $hints = $sameMealIn($next)
+        ? ['cook_double' => 'Doppelte Menge für ' . ($next[1] === 'dinner' ? 'den Abend' : 'morgen Mittag')]
+        : [];
     if ($slot['prep_time'] === 'slow') {
         $hints['slow'] = 'Lange Zubereitung';
     }

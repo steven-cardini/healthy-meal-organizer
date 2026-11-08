@@ -13,14 +13,14 @@ function meal_name_key(string $name): string
 }
 
 /**
- * @return array<int, array<string, array{meal: ?string, note: ?string, meal_id: ?int, prep_time: ?string,
- *     vegetable_level: ?string, leftovers: ?string}>> [cycle_day][meal_time]
+ * @return array<int, array<string, array{meal: ?string, note: ?string, meal_id: ?int, protein_source: ?string,
+ *     prep_time: ?string, child_factor: ?string, vegetable_level: ?string, leftovers: ?string}>> [cycle_day][meal_time]
  */
 function load_plan(PDO $db): array
 {
     $plan = [];
     $rows = $db->query('SELECT s.cycle_day, s.meal_time, m.name AS meal, s.note, s.meal_id,
-            m.prep_time, m.vegetable_level, m.leftovers
+            m.protein_source, m.prep_time, m.child_factor, m.vegetable_level, m.leftovers
         FROM plan_slot s LEFT JOIN meal m ON m.id = s.meal_id');
     foreach ($rows as $row) {
         $plan[$row['cycle_day']][$row['meal_time']] = array_diff_key($row, ['cycle_day' => 0, 'meal_time' => 0]);
@@ -105,10 +105,10 @@ function execute_meal_write(PDO $db, string $sql, array $meal, array $params = [
     return $stmt;
 }
 
-/** @return list<array{id: int, name: string, uses: int}> sorted by name */
+/** @return list<array{id: int, name: string, protein_source: string, prep_time: string, child_factor: string, uses: int}> sorted by name */
 function list_meals(PDO $db): array
 {
-    $meals = $db->query('SELECT m.id, m.name, COUNT(s.cycle_day) AS uses
+    $meals = $db->query('SELECT m.id, m.name, m.protein_source, m.prep_time, m.child_factor, COUNT(s.cycle_day) AS uses
         FROM meal m LEFT JOIN plan_slot s ON s.meal_id = m.id GROUP BY m.id')->fetchAll();
     usort($meals, fn(array $a, array $b): int => strcmp(sort_key($a['name']), sort_key($b['name'])));
     return $meals;

@@ -72,9 +72,3 @@ function weekday(DateTimeImmutable $date): string
 {
     return WEEKDAYS[(int)$date->format('N')];
 }
-
-/** e.g. "Sa 7.11." */
-function format_short_date(DateTimeImmutable $date): string
-{
-    return mb_substr(weekday($date), 0, 2) . ' ' . $date->format('j.n.');
-}

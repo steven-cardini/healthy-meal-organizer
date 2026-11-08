@@ -32,8 +32,8 @@ Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [ar
 
 ### Views
 
-- **FR-4** Day view (start page): weekday, date, cycle week, lunch and dinner. Today, tomorrow and yesterday are labelled *Heute*, *Morgen*, *Gestern*. Shows today by default, with buttons for previous day, next day and (on other days) today.
-- **FR-5** Week view: Monday to Sunday of a calendar week with lunch and dinner, the calendar week (KW) and the cycle week (Woche 1/2), and today highlighted. Shows the current week by default, with buttons for previous week, next week and (in other weeks) this week.
+- **FR-4** Day view (start page): weekday, date, cycle week, lunch and dinner. Today, tomorrow and yesterday are labelled *Heute*, *Morgen*, *Gestern*. Shows today by default, with buttons for previous day, next day and (on other days) today. Swiping left / right shows the next / previous day.
+- **FR-5** Week view: Monday to Sunday of a calendar week with lunch and dinner, the calendar week (KW) and the cycle week (Woche 1/2), and today highlighted. Shows the current week by default, with buttons for previous week, next week and (in other weeks) this week. Swiping left / right shows the next / previous week.
 - **FR-6** Empty slots are shown as not planned, with a link to the slot in the plan editor.
 
 ### Editing
@@ -64,11 +64,12 @@ Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [ar
 | `leftovers` | Reste | `reheats_well`: Gut aufwärmbar, `eat_fresh`: Frisch essen | Whether the **cooked** meal still tastes good when reheated the next day |
 | `vegetable_level` | Gemüse | `main_component`: Genug enthalten, `side_dish`: Gemüsebeilage kochen, `raw_veggies_needed`: Rohkost dazu | Whether the meal contains enough vegetables, and if not, what to add |
 
-- **FR-14** The day and week view show hints below a meal:
-  - *Doppelte Menge kochen*: the meal is `reheats_well` and the same meal is planned in the next slot (lunch → dinner, dinner → next day's lunch; day 14 is followed by day 1).
-  - *Reste*: the same `reheats_well` meal is planned in the slot before. Then no other hint is shown.
+- **FR-14** The day and week view show hints below a meal, each with an icon and text:
+  - *Doppelte Menge für den Abend* / *für morgen Mittag*: the meal is `reheats_well` and the same meal is planned in the next slot (lunch → dinner, dinner → next day's lunch; day 14 is followed by day 1).
+  - *Reste vom Mittagessen* / *vom Vorabend*: the same `reheats_well` meal is planned in the slot before. Then no other hint is shown.
   - *Lange Zubereitung*: `prep_time` is `slow`.
   - *Gemüsebeilage kochen* / *Rohkost dazu*: `vegetable_level` is `side_dish` / `raw_veggies_needed`.
+- **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list shows the same three tags.
 
 ## Non-functional requirements
 
