@@ -146,6 +146,17 @@ main {
     view-transition-name: main;
 }
 
+/* Swipe (app.js): horizontal drags go to the script, the dragged content must not widen the page.
+   Clip on html too, otherwise body passes it on to the viewport instead of clipping. */
+html:not(.zoomed) main:has(a[rel="next"]) {
+    touch-action: pan-y pinch-zoom;
+}
+
+html,
+body {
+    overflow-x: clip;
+}
+
 html:active-view-transition-type(next)::view-transition-old(main) {
     animation: 0.25s ease-in both slide-out-left;
 }
