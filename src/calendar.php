@@ -43,6 +43,18 @@ function cycle_week(int $cycleDay): int
     return $cycleDay <= 7 ? 1 : 2;
 }
 
+/** @return array{int, string} [cycle_day, meal_time] of the slot before; wraps from day 1 to day 14. */
+function previous_slot(int $cycleDay, string $mealTime): array
+{
+    return $mealTime === 'dinner' ? [$cycleDay, 'lunch'] : [($cycleDay + CYCLE_DAYS - 2) % CYCLE_DAYS + 1, 'dinner'];
+}
+
+/** @return array{int, string} [cycle_day, meal_time] of the slot after; wraps from day 14 to day 1. */
+function next_slot(int $cycleDay, string $mealTime): array
+{
+    return $mealTime === 'lunch' ? [$cycleDay, 'dinner'] : [$cycleDay % CYCLE_DAYS + 1, 'lunch'];
+}
+
 /** e.g. "Samstag, 7. November 2026" */
 function format_long_date(DateTimeImmutable $date): string
 {

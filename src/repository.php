@@ -12,46 +12,97 @@ function meal_name_key(string $name): string
     return mb_strtolower($name);
 }
 
-/** @return array<int, array<string, array{meal: ?string, note: ?string}>> [cycle_day][meal_time] */
+/**
+ * @return array<int, array<string, array{meal: ?string, note: ?string, meal_id: ?int, prep_time: ?string,
+ *     vegetable_level: ?string, leftovers: ?string}>> [cycle_day][meal_time]
+ */
 function load_plan(PDO $db): array
 {
     $plan = [];
-    $rows = $db->query('SELECT s.cycle_day, s.meal_time, m.name AS meal, s.note
+    $rows = $db->query('SELECT s.cycle_day, s.meal_time, m.name AS meal, s.note, s.meal_id,
+            m.prep_time, m.vegetable_level, m.leftovers
         FROM plan_slot s LEFT JOIN meal m ON m.id = s.meal_id');
     foreach ($rows as $row) {
-        $plan[$row['cycle_day']][$row['meal_time']] = ['meal' => $row['meal'], 'note' => $row['note']];
+        $plan[$row['cycle_day']][$row['meal_time']] = array_diff_key($row, ['cycle_day' => 0, 'meal_time' => 0]);
     }
     return $plan;
 }
 
-/** $type: 'meal' or 'note'. An empty $text empties the slot. */
-function save_slot(PDO $db, int $cycleDay, string $mealTime, string $type, string $text): void
+/** Exactly one of $mealId / $note, or neither to empty the slot. */
+function save_slot(PDO $db, int $cycleDay, string $mealTime, ?int $mealId, ?string $note): void
 {
-    $db->beginTransaction();
-    try {
-        if ($text === '') {
-            $db->prepare('DELETE FROM plan_slot WHERE cycle_day = ? AND meal_time = ?')
-                ->execute([$cycleDay, $mealTime]);
-        } else {
-            $mealId = $type === 'meal' ? find_or_create_meal($db, $text) : null;
-            $db->prepare('INSERT INTO plan_slot (cycle_day, meal_time, meal_id, note) VALUES (?, ?, ?, ?)
-                ON CONFLICT (cycle_day, meal_time) DO UPDATE SET meal_id = excluded.meal_id, note = excluded.note')
-                ->execute([$cycleDay, $mealTime, $mealId, $mealId === null ? $text : null]);
-        }
-        $db->commit();
-    } catch (Throwable $e) {
-        $db->rollBack();
-        throw $e;
+    if ($mealId === null && $note === null) {
+        $db->prepare('DELETE FROM plan_slot WHERE cycle_day = ? AND meal_time = ?')->execute([$cycleDay, $mealTime]);
+        return;
+    }
+    $db->prepare('INSERT INTO plan_slot (cycle_day, meal_time, meal_id, note) VALUES (?, ?, ?, ?)
+        ON CONFLICT (cycle_day, meal_time) DO UPDATE SET meal_id = excluded.meal_id, note = excluded.note')
+        ->execute([$cycleDay, $mealTime, $mealId, $note]);
+}
+
+function find_meal_id(PDO $db, string $name): ?int
+{
+    $stmt = $db->prepare('SELECT id FROM meal WHERE name_key = ?');
+    $stmt->execute([meal_name_key($name)]);
+    $id = $stmt->fetchColumn();
+    return $id === false ? null : (int)$id;
+}
+
+/** @return ?array{id: int, name: string, uses: int, ...} the meal with all tags */
+function find_meal(PDO $db, int $id): ?array
+{
+    $stmt = $db->prepare('SELECT m.id, m.name, m.protein_source, m.heaviness, m.prep_time, m.child_factor,
+            m.shelf_life, m.leftovers, m.vegetable_level,
+            (SELECT COUNT(*) FROM plan_slot s WHERE s.meal_id = m.id) AS uses
+        FROM meal m WHERE m.id = ?');
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: null;
+}
+
+/** $meal: name and one value per tag in MEAL_TAGS. Returns the new ID. */
+function create_meal(PDO $db, array $meal): int
+{
+    execute_meal_write($db, 'INSERT INTO meal (name, name_key, protein_source, heaviness, prep_time, child_factor,
+            shelf_life, leftovers, vegetable_level)
+        VALUES (:name, :name_key, :protein_source, :heaviness, :prep_time, :child_factor,
+            :shelf_life, :leftovers, :vegetable_level)', $meal);
+    return (int)$db->lastInsertId();
+}
+
+/** $meal: see create_meal(). */
+function update_meal(PDO $db, int $id, array $meal): void
+{
+    $stmt = execute_meal_write($db, 'UPDATE meal SET name = :name, name_key = :name_key,
+            protein_source = :protein_source, heaviness = :heaviness, prep_time = :prep_time,
+            child_factor = :child_factor, shelf_life = :shelf_life, leftovers = :leftovers,
+            vegetable_level = :vegetable_level
+        WHERE id = :id', $meal, ['id' => $id]);
+    if ($stmt->rowCount() === 0) {
+        throw new UserError('Dieses Gericht gibt es nicht mehr.');
     }
 }
 
-function find_or_create_meal(PDO $db, string $name): int
+function execute_meal_write(PDO $db, string $sql, array $meal, array $params = []): PDOStatement
 {
-    $db->prepare('INSERT INTO meal (name, name_key) VALUES (?, ?) ON CONFLICT (name_key) DO NOTHING')
-        ->execute([$name, meal_name_key($name)]);
-    $stmt = $db->prepare('SELECT id FROM meal WHERE name_key = ?');
-    $stmt->execute([meal_name_key($name)]);
-    return (int)$stmt->fetchColumn();
+    if (($meal['name'] ?? '') === '') {
+        throw new UserError('Gib einen Namen ein.');
+    }
+    foreach (MEAL_TAGS as $tag => $definition) {
+        if (!is_string($meal[$tag] ?? null) || !isset($definition['values'][$meal[$tag]])) {
+            throw new UserError('Wähle bei jeder Eigenschaft einen Wert.');
+        }
+        $params[$tag] = $meal[$tag];
+    }
+    $stmt = $db->prepare($sql);
+    try {
+        $stmt->execute($params + ['name' => $meal['name'], 'name_key' => meal_name_key($meal['name'])]);
+    } catch (PDOException $e) {
+        if ($e->getCode() === SQLSTATE_CONSTRAINT) {
+            throw new UserError('Es gibt bereits ein Gericht mit diesem Namen.');
+        }
+        throw $e;
+    }
+    return $stmt;
 }
 
 /** @return list<array{id: int, name: string, uses: int}> sorted by name */
@@ -70,22 +121,6 @@ function sort_key(string $name): string
         'ä' => 'a', 'à' => 'a', 'â' => 'a', 'ç' => 'c', 'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
         'î' => 'i', 'ï' => 'i', 'ö' => 'o', 'ô' => 'o', 'ü' => 'u', 'ù' => 'u', 'û' => 'u',
     ]);
-}
-
-function rename_meal(PDO $db, int $id, string $name): void
-{
-    if ($name === '') {
-        throw new UserError('Gib einen Namen ein.');
-    }
-    try {
-        $db->prepare('UPDATE meal SET name = ?, name_key = ? WHERE id = ?')
-            ->execute([$name, meal_name_key($name), $id]);
-    } catch (PDOException $e) {
-        if ($e->getCode() === SQLSTATE_CONSTRAINT) {
-            throw new UserError('Es gibt bereits ein Gericht mit diesem Namen.');
-        }
-        throw $e;
-    }
 }
 
 function delete_meal(PDO $db, int $id): void

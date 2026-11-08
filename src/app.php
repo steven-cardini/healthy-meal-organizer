@@ -12,6 +12,34 @@ const SESSION_LIFETIME = 180 * 86400;
 const MAX_TEXT_LENGTH = 100;
 const MEAL_TIMES = ['lunch' => 'Mittagessen', 'dinner' => 'Abendessen'];
 
+// Same values as the CHECK constraints in db/schema.sql. Meaning: docs/requirements.md#meal-tags.
+const MEAL_TAGS = [
+    'protein_source' => ['label' => 'Proteinquelle', 'values' => [
+        'meat' => 'Fleisch (ohne Geflügel)', 'poultry' => 'Geflügel', 'fish' => 'Fisch', 'legumes' => 'Hülsenfrüchte',
+        'egg' => 'Ei', 'dairy_cheese' => 'Milchprodukte/Käse', 'vegan_tofu' => 'Tofu/Seitan',
+        'none' => 'Keine (möglichst vermeiden)',
+    ]],
+    'heaviness' => ['label' => 'Bekömmlichkeit', 'values' => [
+        'light' => 'Leicht', 'medium' => 'Mittel', 'heavy' => 'Schwer',
+    ]],
+    'prep_time' => ['label' => 'Zubereitungszeit', 'values' => [
+        'quick' => 'Schnell (≤ 20 Min.)', 'medium' => 'Mittel (20–40 Min.)', 'slow' => 'Lang (> 40 Min.)',
+    ]],
+    'child_factor' => ['label' => 'Kindertauglichkeit', 'values' => [
+        'high_flyer' => 'Alle mögen es', 'deconstructed' => 'Baukasten (einzeln servierbar)',
+        'acquired_taste' => 'Gewöhnungsbedürftig',
+    ]],
+    'shelf_life' => ['label' => 'Haltbarkeit', 'hint' => 'der ungekochten Zutaten', 'values' => [
+        'short' => 'Kurz (1–2 Tage)', 'medium' => 'Mittel (3–5 Tage)', 'long' => 'Lang (> 5 Tage)',
+    ]],
+    'leftovers' => ['label' => 'Reste', 'hint' => 'des gekochten Gerichts am Folgetag', 'values' => [
+        'reheats_well' => 'Gut aufwärmbar', 'eat_fresh' => 'Frisch essen',
+    ]],
+    'vegetable_level' => ['label' => 'Gemüse', 'values' => [
+        'main_component' => 'Genug enthalten', 'side_dish' => 'Gemüsebeilage kochen', 'raw_veggies_needed' => 'Rohkost dazu',
+    ]],
+];
+
 /** Invalid user input; the message is shown in the UI. */
 final class UserError extends RuntimeException
 {
@@ -154,14 +182,37 @@ function render_error(int $status, string $message): never
     render('error', 'Fehler', ['message' => $message], null, $status);
 }
 
-/** HTML for a slot as shown in the day and week view. */
-function slot_html(?array $slot): string
+/** HTML for a slot as shown in the day and week view. $plan: see load_plan(). */
+function slot_html(array $plan, int $cycleDay, string $mealTime): string
 {
-    return match (true) {
-        $slot === null => '<span class="muted">Nicht geplant</span>',
-        $slot['meal'] !== null => e($slot['meal']),
-        default => '<em>' . e($slot['note']) . '</em>',
-    };
+    $slot = $plan[$cycleDay][$mealTime] ?? null;
+    if ($slot === null) {
+        return '<span class="muted">Nicht geplant</span>';
+    }
+    if ($slot['meal'] === null) {
+        return '<em>' . e($slot['note']) . '</em>';
+    }
+    $hints = slot_hints($plan, $cycleDay, $mealTime);
+    return e($slot['meal']) . ($hints === [] ? '' : '<small class="hints">' . e(implode(' · ', $hints)) . '</small>');
+}
+
+/** @return list<string> see docs/requirements.md#meal-tags (FR-14) */
+function slot_hints(array $plan, int $cycleDay, string $mealTime): array
+{
+    $slot = $plan[$cycleDay][$mealTime];
+    $sameMealIn = fn(array $neighbour): bool => $slot['leftovers'] === 'reheats_well'
+        && ($plan[$neighbour[0]][$neighbour[1]]['meal_id'] ?? null) === $slot['meal_id'];
+    if ($sameMealIn(previous_slot($cycleDay, $mealTime))) {
+        return ['Reste'];
+    }
+    $hints = $sameMealIn(next_slot($cycleDay, $mealTime)) ? ['Doppelte Menge kochen'] : [];
+    if ($slot['prep_time'] === 'slow') {
+        $hints[] = 'Lange Zubereitung';
+    }
+    if ($slot['vegetable_level'] !== 'main_component') {
+        $hints[] = MEAL_TAGS['vegetable_level']['values'][$slot['vegetable_level']];
+    }
+    return $hints;
 }
 
 function flash_html(?array $flash): string

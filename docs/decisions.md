@@ -19,6 +19,14 @@
 | D-15 | Renaming a meal to the name of another meal is rejected with an error. | Simple. Rejected: merging the two meals. |
 | D-16 | Meal names are unique via a lowercase `name_key` column. | SQLite `NOCASE` only folds ASCII, so "Älplermagronen" and "älplermagronen" would both be accepted. |
 | D-17 | Schema version in `PRAGMA user_version`. | Later phases can migrate the production database instead of recreating it. |
+| D-18 | Meal tags (FR-13) are one `NOT NULL` column per tag on `meal`, with a `CHECK` on the allowed values. The table stays `meal`. | The database enforces "exactly one value per tag". Rejected: a generic tag table (`type`, `value`), which cannot enforce this; renaming to `recipe` (in the glossary, a recipe is ingredients and steps). |
+| D-19 | A meal can only be created with all tags. A new name in the plan editor redirects to the new meal form; after saving, the slot is filled. | Mandatory tags. Rejected: creating meals without tags; an error message with a link (one more click). |
+| D-20 | Prep time is a category (`quick`, `medium`, `slow`), not minutes. | Enough for planning and for finding quicker meals. Rejected: `prep_minutes`. |
+| D-21 | One `leftovers` tag (`reheats_well`, `eat_fresh`). *Doppelte Menge kochen* / *Reste* are derived from the same meal in consecutive slots (FR-14). | "Cook more" depends on the plan, not on the meal. Rejected: separate values `double_batch` and `reheats_well` (almost always overlap); a leftover flag per slot. |
+| D-22 | An error in the meal form shows the form again with the entered values (status 422), without a redirect. | The user would otherwise lose up to 7 choices. Rejected: Post/Redirect/Get with the values in the session. |
+| D-23 | `meat` means all meat except poultry. `protein_source` has a value `none`, which is discouraged. | Common Swiss split "Fleisch / Geflügel / Fisch". Rejected: `beef_pork` (too narrow), `red_meat` (veal is not red meat). |
+| D-24 | Tag values are lowercase snake_case codes with German UI labels. The meal form uses radio groups without a preselected value. | Consistent with `lunch` / `dinner`. All options are visible and need one tap; nothing is saved by accident. Rejected: drop-downs (options hidden), default values. |
+| D-25 | The day and week view only show hints you can act on (FR-14). The other tags are shown in the meal form only. | Keeps the views short. Protein, digestibility, kid suitability and shelf life matter for planning, not for cooking. |
 
 ## Open points (before or during implementation)
 

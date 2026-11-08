@@ -18,7 +18,7 @@
             <tr<?= $day['date'] == $today ? ' class="today" aria-current="date"' : '' ?>>
                 <th scope="row"><a href="/?date=<?= e($day['date']->format('Y-m-d')) ?>"><?= e(format_short_date($day['date'])) ?></a></th>
                 <?php foreach (array_keys(MEAL_TIMES) as $mealTime): ?>
-                    <td><?= slot_html($day['slots'][$mealTime] ?? null) ?></td>
+                    <td><?= slot_html($plan, $day['cycleDay'], $mealTime) ?></td>
                 <?php endforeach ?>
             </tr>
         <?php endforeach ?>

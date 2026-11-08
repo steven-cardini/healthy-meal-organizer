@@ -1,7 +1,7 @@
 <?php declare(strict_types=1) ?>
 <hgroup>
     <h1>Plan bearbeiten</h1>
-    <p>Feld leeren und speichern: nicht geplant.</p>
+    <p>Feld leeren und speichern: nicht geplant. Ein neuer Name führt zum Erfassen des Gerichts.</p>
 </hgroup>
 <datalist id="meal-names">
     <?php foreach ($meals as $meal): ?>

@@ -11,7 +11,8 @@ function day_page(PDO $db, array $config): never
         'date' => $date,
         'isToday' => $date == $today,
         'cycleWeek' => cycle_week($cycleDay),
-        'slots' => load_plan($db)[$cycleDay] ?? [],
+        'cycleDay' => $cycleDay,
+        'plan' => load_plan($db),
         'previous' => add_days($date, -1),
         'next' => add_days($date, 1),
     ], 'day');
@@ -25,10 +26,11 @@ function week_page(PDO $db, array $config): never
     $days = [];
     for ($i = 0; $i < 7; $i++) {
         $date = add_days($monday, $i);
-        $days[] = ['date' => $date, 'slots' => $plan[cycle_day($date, $start)] ?? []];
+        $days[] = ['date' => $date, 'cycleDay' => cycle_day($date, $start)];
     }
     render('week', 'Woche', [
         'days' => $days,
+        'plan' => $plan,
         'today' => today(),
         'calendarWeek' => (int)$monday->format('W'),
         'cycleWeek' => cycle_week(cycle_day($monday, $start)),
@@ -57,17 +59,20 @@ function plan_page(PDO $db): never
 
 function save_slot_action(PDO $db): never
 {
-    $cycleDay = filter_var($_POST['cycle_day'] ?? null, FILTER_VALIDATE_INT,
-        ['options' => ['min_range' => 1, 'max_range' => CYCLE_DAYS]]);
-    $mealTime = $_POST['meal_time'] ?? null;
+    [$cycleDay, $mealTime] = slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
     $type = $_POST['type'] ?? null;
-    if ($cycleDay === false || !in_array($mealTime, array_keys(MEAL_TIMES), true)
-        || !in_array($type, ['meal', 'note'], true)) {
+    if (!in_array($type, ['meal', 'note'], true)) {
         render_error(400, 'Ungültige Anfrage.');
     }
     $target = "slot-$cycleDay-$mealTime";
     try {
-        save_slot($db, $cycleDay, $mealTime, $type, clean_text($_POST['text'] ?? null));
+        $text = clean_text($_POST['text'] ?? null);
+        $mealId = null;
+        if ($type === 'meal' && $text !== '') {
+            $mealId = find_meal_id($db, $text) ?? redirect('/meals/new?'
+                . http_build_query(['name' => $text, 'cycle_day' => $cycleDay, 'meal_time' => $mealTime]));
+        }
+        save_slot($db, $cycleDay, $mealTime, $mealId, $type === 'note' && $text !== '' ? $text : null);
         set_flash('Gespeichert.', false, $target);
     } catch (UserError $e) {
         set_flash($e->getMessage(), true, $target);
@@ -75,22 +80,76 @@ function save_slot_action(PDO $db): never
     redirect("/plan#$target");
 }
 
+/** @return ?array{int, string} [cycle_day, meal_time], or null if both are missing. Invalid values: 400. */
+function slot_param(array $input): ?array
+{
+    if (!isset($input['cycle_day']) && !isset($input['meal_time'])) {
+        return null;
+    }
+    $cycleDay = filter_var($input['cycle_day'] ?? null, FILTER_VALIDATE_INT,
+        ['options' => ['min_range' => 1, 'max_range' => CYCLE_DAYS]]);
+    $mealTime = $input['meal_time'] ?? null;
+    if ($cycleDay === false || !in_array($mealTime, array_keys(MEAL_TIMES), true)) {
+        render_error(400, 'Ungültige Anfrage.');
+    }
+    return [$cycleDay, $mealTime];
+}
+
 function meals_page(PDO $db): never
 {
     render('meals', 'Gerichte', ['meals' => list_meals($db)], 'meals');
 }
 
-function rename_meal_action(PDO $db): never
+/** Optional ?name= and ?cycle_day=&meal_time= (from the plan editor: the slot to fill after saving). */
+function new_meal_page(): never
+{
+    try {
+        $name = clean_text($_GET['name'] ?? '');
+    } catch (UserError) {
+        $name = '';
+    }
+    render_meal_form(['name' => $name], null, slot_param($_GET));
+}
+
+function new_meal_action(PDO $db): never
+{
+    $slot = slot_param($_POST);
+    $meal = meal_form_input();
+    try {
+        $meal['name'] = clean_text($meal['name']);
+        $id = create_meal($db, $meal);
+    } catch (UserError $e) {
+        render_meal_form($meal, null, $slot, 0, $e->getMessage());
+    }
+    if ($slot !== null) {
+        [$cycleDay, $mealTime] = $slot;
+        save_slot($db, $cycleDay, $mealTime, $id, null);
+        set_flash('Gespeichert.', false, "slot-$cycleDay-$mealTime");
+        redirect("/plan#slot-$cycleDay-$mealTime");
+    }
+    set_flash('Gespeichert.', false, "meal-$id");
+    redirect("/meals#meal-$id");
+}
+
+function edit_meal_page(PDO $db): never
+{
+    $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $meal = ($id === false ? null : find_meal($db, $id)) ?? render_error(404, 'Dieses Gericht gibt es nicht.');
+    render_meal_form($meal, $id, null, $meal['uses']);
+}
+
+function edit_meal_action(PDO $db): never
 {
     $id = meal_id_param();
-    $target = "meal-$id";
+    $meal = meal_form_input();
     try {
-        rename_meal($db, $id, clean_text($_POST['name'] ?? null));
-        set_flash('Gespeichert.', false, $target);
+        $meal['name'] = clean_text($meal['name']);
+        update_meal($db, $id, $meal);
     } catch (UserError $e) {
-        set_flash($e->getMessage(), true, $target);
+        render_meal_form($meal, $id, null, find_meal($db, $id)['uses'] ?? 0, $e->getMessage());
     }
-    redirect("/meals#$target");
+    set_flash('Gespeichert.', false, "meal-$id");
+    redirect("/meals#meal-$id");
 }
 
 function delete_meal_action(PDO $db): never
@@ -101,9 +160,27 @@ function delete_meal_action(PDO $db): never
         set_flash('Gericht gelöscht.', false);
         redirect('/meals');
     } catch (UserError $e) {
-        set_flash($e->getMessage(), true, "meal-$id");
-        redirect("/meals#meal-$id");
+        set_flash($e->getMessage(), true);
+        redirect("/meals/edit?id=$id");
     }
+}
+
+/** Errors are shown in the form with the entered values (no redirect, see docs/decisions.md D-22). */
+function render_meal_form(array $meal, ?int $id, ?array $slot, int $uses = 0, ?string $error = null): never
+{
+    render('meal', $id === null ? 'Neues Gericht' : 'Gericht bearbeiten',
+        ['meal' => $meal, 'id' => $id, 'slot' => $slot, 'uses' => $uses, 'error' => $error],
+        'meals', $error === null ? 200 : 422);
+}
+
+/** @return array{name: string, ...} name and tags as posted; unchecked by design (see execute_meal_write()). */
+function meal_form_input(): array
+{
+    $meal = ['name' => is_string($_POST['name'] ?? null) ? $_POST['name'] : ''];
+    foreach (array_keys(MEAL_TAGS) as $tag) {
+        $meal[$tag] = is_string($_POST[$tag] ?? null) ? $_POST[$tag] : null;
+    }
+    return $meal;
 }
 
 function meal_id_param(): int

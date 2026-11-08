@@ -50,29 +50,34 @@ config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 | GET      | `/plan`         | Plan editor                                     |
 | POST     | `/plan/slot`    | Save one slot                                   |
 | GET      | `/meals`        | Meal list                                       |
-| POST     | `/meals/rename` | Rename a meal                                   |
+| GET/POST | `/meals/new`    | New meal form / create; optional `?name=` and `?cycle_day=&meal_time=` (slot to fill after saving) |
+| GET/POST | `/meals/edit`   | Edit form (`?id=`) / save name and tags         |
 | POST     | `/meals/delete` | Delete an unused meal                           |
 | GET/POST | `/login`        | Login form / login                              |
 | POST     | `/logout`       | Logout                                          |
 
-Every route except `/login` requires a session. Every POST checks the CSRF token and redirects afterwards (Post/Redirect/Get). Messages after a POST ("Gespeichert.", errors) are shown once, next to the edited slot or meal.
+Every route except `/login` requires a session. Every POST checks the CSRF token and redirects afterwards (Post/Redirect/Get). Messages after a POST ("Gespeichert.", errors) are shown once, next to the edited slot or meal. Exception: an error in the meal form shows the form again with the entered values and status 422 (D-22).
 
 ## Plan editor
 
-Each slot is a form with a choice *Gericht* / *Notiz* and one text field (suggestions from the meal list via `<datalist>`). An empty text field empties the slot. A meal name not yet in the meal list adds a new meal.
+Each slot is a form with a choice *Gericht* / *Notiz* and one text field (suggestions from the meal list via `<datalist>`). An empty text field empties the slot. A meal name not yet in the meal list redirects to `/meals/new` with the name and the slot; saving that form creates the meal, fills the slot and returns to the plan.
+
+## Meal form
+
+Name and one radio group per tag (FR-13), without a preselected value; every group is `required`. The tags and their UI labels are defined in `MEAL_TAGS` (`src/app.php`), which must match the `CHECK` constraints in `db/schema.sql` (checked by the smoke tests).
 
 ## Data model
 
 Conceptual only. The SSOT is `db/schema.sql`.
 
-- **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts)
+- **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13)
 - **plan_slot**: `cycle_day` (1–14), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
   - Primary key (`cycle_day`, `meal_time`). Exactly one of `meal_id` / `note` is set. No row means the slot is empty.
 - **login_failure**: `ip`, `failed_at` (for login throttling)
 
 Meal names and notes are trimmed, and runs of whitespace are collapsed to one space. The meal list is sorted with accented letters treated like their base letter (`ä` like `a`).
 
-Schema version: `PRAGMA user_version` (currently 1). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
+Schema version: `PRAGMA user_version` (currently 1; the meal tags were added to version 1 before any production data existed, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
 
 ## Cycle calculation
 
@@ -112,9 +117,9 @@ No inline scripts or styles. PHP errors are logged, never displayed (except on t
 
 ## Extension points
 
-Not part of the MVP. Recorded so that the MVP design leaves room for them.
+Not implemented yet. Recorded so that the design leaves room for them.
 
-- **Swap (phase 2):** a table with one-time replacements keyed by (`date`, `meal_time`), holding a `meal_id` or a `note`. The effective entry for a date is the swap if one exists, otherwise the plan slot.
-- **Prep time (phase 2):** a column on `meal`, used to suggest quicker meals when swapping.
-- **Recipes, shopping list (phase 2):** recipes with ingredients, linked to `meal`.
-- **Health balance (phase 3):** food group classification per meal or recipe.
+- **Cycle length (phase 3):** `CYCLE_DAYS` and `cycle_week()` (`src/calendar.php`) and the `CHECK` on `plan_slot.cycle_day` assume 14 days.
+- **Swap (phase 4):** a table with one-time replacements keyed by (`date`, `meal_time`), holding a `meal_id` or a `note`. The effective entry for a date is the swap if one exists, otherwise the plan slot.
+- **Recipes, shopping list (phase 4):** recipes with ingredients, linked to `meal`. The `prep_time` tag can be used to suggest quicker meals when swapping.
+- **Health balance (phase 5):** based on the meal tags (FR-13).

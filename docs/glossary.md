@@ -18,6 +18,7 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Slot                | –                  | `plan_slot`          | One meal time on one cycle day (28 in total). Holds a meal, a note, or nothing. | 1 |
 | Meal                | Gericht            | `meal`               | Reusable dish in the meal list, e.g. "Älplermagronen". | 1 |
 | Meal list           | Gerichte           | `meals`              | All meals of the household. | 1 |
+| New meal            | Neues Gericht      | `new_meal`           | Form to add a meal with its name and all tags. | 2 |
 | Note                | Notiz              | `note`               | Short text in a slot instead of a meal, e.g. "Eltern kochen". | 1 |
 | Not planned         | Nicht geplant      | –                    | Display text for an empty slot. | 1 |
 | Day view            | Heute / Tag        | `day`                | Page with the meals of one day (default: today). | 1 |
@@ -26,12 +27,20 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Household           | Haushalt           | –                    | The group of users sharing one plan and one password. | 1 |
 | Shared password     | Passwort           | `password_hash`      | The single household password. | 1 |
 | Log in / Log out    | Anmelden / Abmelden | `login` / `logout`  | Start / end a session on a device. | 1 |
-| Swap                | Tauschen           | `swap`               | One-time replacement of the planned meal on a specific date. | 2 |
-| Prep time           | Zubereitungszeit   | `prep_minutes`       | Minutes needed to prepare a meal. Used to find quicker meals. | 2 |
-| Recipe              | Rezept             | `recipe`             | Ingredients and preparation steps of a meal. | 2 |
-| Ingredient          | Zutat              | `ingredient`         | Food item with quantity and unit in a recipe. | 2 |
-| Servings            | Portionen          | `servings`           | Number of portions a recipe yields. | 2 |
-| Shopping list       | Einkaufsliste      | `shopping_list`      | Ingredients needed for a period of the plan, combined. | 2 |
-| Health balance      | Ausgewogenheit     | `health_balance`     | How well meals match dietary recommendations. | 3 |
-| Food pyramid        | Lebensmittelpyramide | `food_pyramid`     | Swiss dietary recommendation (SGE); in Germany often called "Ernährungspyramide". | 3 |
-| Food group          | Lebensmittelgruppe | `food_group`         | Category of the food pyramid, e.g. vegetables, protein. | 3 |
+| Tag                 | Eigenschaft        | `MEAL_TAGS`          | Property of a meal with exactly one value. Tags and values: see [requirements.md](requirements.md#meal-tags). | 2 |
+| Protein source      | Proteinquelle      | `protein_source`     | Main protein source of a meal. | 2 |
+| Heaviness           | Bekömmlichkeit     | `heaviness`          | How long a meal takes to digest. | 2 |
+| Prep time           | Zubereitungszeit   | `prep_time`          | Time and effort to prepare a meal (category). | 2 |
+| Kid suitability     | Kindertauglichkeit | `child_factor`       | How the children accept a meal. | 2 |
+| Shelf life          | Haltbarkeit        | `shelf_life`         | How long the uncooked ingredients keep after delivery. | 2 |
+| Leftovers           | Reste              | `leftovers`          | Whether the cooked meal reheats well the next day. | 2 |
+| Vegetable level     | Gemüse             | `vegetable_level`    | Whether a meal contains enough vegetables. | 2 |
+| Hint                | –                  | `slot_hints`         | Short note below a meal in the day and week view, e.g. "Rohkost dazu". | 2 |
+| Swap                | Tauschen           | `swap`               | One-time replacement of the planned meal on a specific date. | 4 |
+| Recipe              | Rezept             | `recipe`             | Ingredients and preparation steps of a meal. | 4 |
+| Ingredient          | Zutat              | `ingredient`         | Food item with quantity and unit in a recipe. | 4 |
+| Servings            | Portionen          | `servings`           | Number of portions a recipe yields. | 4 |
+| Shopping list       | Einkaufsliste      | `shopping_list`      | Ingredients needed for a period of the plan, combined. | 4 |
+| Health balance      | Ausgewogenheit     | `health_balance`     | How well meals match dietary recommendations. | 5 |
+| Food pyramid        | Lebensmittelpyramide | `food_pyramid`     | Swiss dietary recommendation (SGE); in Germany often called "Ernährungspyramide". | 5 |
+| Food group          | Lebensmittelgruppe | `food_group`         | Category of the food pyramid, e.g. vegetables, protein. | 5 |

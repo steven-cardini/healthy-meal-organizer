@@ -6,7 +6,7 @@
 <?php foreach (MEAL_TIMES as $mealTime => $label): ?>
     <article>
         <header><?= e($label) ?></header>
-        <p class="meal"><?= slot_html($slots[$mealTime] ?? null) ?></p>
+        <p class="meal"><?= slot_html($plan, $cycleDay, $mealTime) ?></p>
     </article>
 <?php endforeach ?>
 <nav class="pager">
