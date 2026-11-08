@@ -15,7 +15,7 @@ const MEAL_TIMES = ['lunch' => 'Mittagessen', 'dinner' => 'Abendessen'];
 // Same values as the CHECK constraints in db/schema.sql. Meaning: docs/requirements.md#meal-tags.
 const MEAL_TAGS = [
     'protein_source' => ['label' => 'Proteinquelle', 'values' => [
-        'meat' => 'Fleisch (ohne Geflügel)', 'poultry' => 'Geflügel', 'fish' => 'Fisch', 'legumes' => 'Hülsenfrüchte',
+        'meat' => 'Fleisch', 'poultry' => 'Geflügel', 'fish' => 'Fisch', 'legumes' => 'Hülsenfrüchte',
         'egg' => 'Ei', 'dairy_cheese' => 'Milchprodukte/Käse', 'vegan_tofu' => 'Tofu/Seitan',
         'none' => 'Keine (möglichst vermeiden)',
     ]],

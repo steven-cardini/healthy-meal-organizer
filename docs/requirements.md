@@ -45,7 +45,7 @@ Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [ar
 
 ### Access
 
-- **FR-11** All pages require login with the shared household password. A login stays valid on a device for 180 days after its last use. Logout is possible.
+- **FR-11** All pages require login with the shared household password. A login stays valid on a device for 180 days after its last use. There is no logout.
 - **FR-12** The app can be installed as a PWA on Android and iOS phones and tablets. It opens on the day view.
 
 ## Functional requirements (phase 2)
@@ -56,7 +56,7 @@ Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [ar
 
 | Tag (code) | UI label | Values (code: UI label) | Meaning |
 |---|---|---|---|
-| `protein_source` | Proteinquelle | `meat`: Fleisch (ohne Geflügel), `poultry`: Geflügel, `fish`: Fisch, `legumes`: Hülsenfrüchte, `egg`: Ei, `dairy_cheese`: Milchprodukte/Käse, `vegan_tofu`: Tofu/Seitan, `none`: Keine (möglichst vermeiden) | Main protein source. `meat` is all meat except poultry (beef, veal, pork, lamb, game, sausages). `none` is discouraged |
+| `protein_source` | Proteinquelle | `meat`: Fleisch, `poultry`: Geflügel, `fish`: Fisch, `legumes`: Hülsenfrüchte, `egg`: Ei, `dairy_cheese`: Milchprodukte/Käse, `vegan_tofu`: Tofu/Seitan, `none`: Keine (möglichst vermeiden) | Main protein source. `meat` is all meat except poultry (beef, veal, pork, lamb, game, sausages). `none` is discouraged |
 | `heaviness` | Bekömmlichkeit | `light`: Leicht, `medium`: Mittel, `heavy`: Schwer | Digestion time: 1.5–2.5 h, 3–4 h, 4–6 h or more |
 | `prep_time` | Zubereitungszeit | `quick`: Schnell (≤ 20 Min.), `medium`: Mittel (20–40 Min.), `slow`: Lang (> 40 Min.) | Time and effort to prepare |
 | `child_factor` | Kindertauglichkeit | `high_flyer`: Alle mögen es, `deconstructed`: Baukasten (einzeln servierbar), `acquired_taste`: Gewöhnungsbedürftig | How the children accept it. Baukasten: components can be served separately. Gewöhnungsbedürftig: children get a neutral side dish and raw vegetables |

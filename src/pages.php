@@ -225,11 +225,3 @@ function login_action(PDO $db, array $config): never
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
     redirect('/');
 }
-
-function logout_action(): never
-{
-    $_SESSION = [];
-    session_destroy();
-    setcookie(session_name(), '', ['expires' => 1] + cookie_options());
-    redirect('/login');
-}

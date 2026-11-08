@@ -34,7 +34,6 @@ const ROUTES = [
     'POST /meals/delete' => 'delete_meal_action',
     'GET /login' => 'login_page',
     'POST /login' => 'login_action',
-    'POST /logout' => 'logout_action',
 ];
 
 $config = load_config(getenv('MENUPLAN_CONFIG') ?: ROOT_DIR . '/config.php');

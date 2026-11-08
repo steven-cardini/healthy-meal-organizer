@@ -31,6 +31,7 @@
 | D-27 | The week view is a list of day cards (lunch and dinner stacked), with three columns on wider screens. | The previous table was wider than a phone screen. Rejected: a table with horizontal scrolling. |
 | D-28 | Navigation: a tab bar at the bottom on phones, at the top on wider screens. Swiping left / right on the day and week view follows the next / previous link, with a slide transition (cross-document view transitions). Small JavaScript in `app.js`, no framework (D-3). | Native app feel and thumb reach. Everything still works without JavaScript or view transition support (buttons, no animation). |
 | D-29 | CSS and JS URLs carry the file's modification time (`asset_url()`). | Browsers otherwise keep using an outdated `app.css` after a deployment. Rejected: manual version numbers (easy to forget). |
+| D-30 | No logout. | Users never log out on their own devices; all devices can be logged out on the server (see `README.md`). |
 
 ## Open points (before or during implementation)
 

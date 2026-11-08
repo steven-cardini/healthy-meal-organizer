@@ -411,8 +411,9 @@ foreach (['/manifest.webmanifest', '/sw.js', '/offline.html', '/assets/app.css',
     check("static file $file", request('GET', $file)['status'] === 200);
 }
 
-check('logout', redirects_to(request('POST', '/logout', ['csrf' => $token]), '/login'));
-check('logged out after logout', redirects_to(request('GET', '/'), '/login'));
+check('no logout', request('POST', '/logout', ['csrf' => $token])['status'] === 404
+    && !str_contains(request('GET', '/')['body'], 'Abmelden'));
+$cookies = [];
 
 for ($i = 0; $i < 5; $i++) {
     request('POST', '/login', ['csrf' => csrf('/login'), 'password' => 'wrong']);

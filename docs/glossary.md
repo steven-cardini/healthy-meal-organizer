@@ -26,7 +26,7 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Plan editor         | Plan bearbeiten    | `plan`               | Page to fill the 28 slots. Tab label: *Plan*. | 1 |
 | Household           | Haushalt           | –                    | The group of users sharing one plan and one password. | 1 |
 | Shared password     | Passwort           | `password_hash`      | The single household password. | 1 |
-| Log in / Log out    | Anmelden / Abmelden | `login` / `logout`  | Start / end a session on a device. | 1 |
+| Log in              | Anmelden           | `login`              | Start a session on a device. | 1 |
 | Tag                 | Eigenschaft        | `MEAL_TAGS`          | Property of a meal with exactly one value. Tags and values: see [requirements.md](requirements.md#meal-tags). | 2 |
 | Protein source      | Proteinquelle      | `protein_source`     | Main protein source of a meal. | 2 |
 | Heaviness           | Bekömmlichkeit     | `heaviness`          | How long a meal takes to digest. | 2 |

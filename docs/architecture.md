@@ -54,7 +54,6 @@ config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 | GET/POST | `/meals/edit`   | Edit form (`?id=`) / save name and tags         |
 | POST     | `/meals/delete` | Delete an unused meal                           |
 | GET/POST | `/login`        | Login form / login                              |
-| POST     | `/logout`       | Logout                                          |
 
 Every route except `/login` requires a session. Every POST checks the CSRF token and redirects afterwards (Post/Redirect/Get). Messages after a POST ("Gespeichert.", errors) are shown once, next to the edited slot or meal. Exception: an error in the meal form shows the form again with the entered values and status 422 (D-22).
 

@@ -38,13 +38,5 @@ $menu = [
     <?= flash_html(($flash['target'] ?? null) === null ? $flash : null) ?>
     <?= $content ?>
 </main>
-<?php if ($nav !== null): ?>
-    <footer class="container">
-        <form method="post" action="/logout">
-            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-            <button type="submit" class="secondary outline logout">Abmelden</button>
-        </form>
-    </footer>
-<?php endif ?>
 </body>
 </html>
