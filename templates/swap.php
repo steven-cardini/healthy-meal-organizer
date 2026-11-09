@@ -24,8 +24,12 @@ $slotFields = '<input type="hidden" name="date" value="' . e($date->format('Y-m-
                         <input type="hidden" name="partner_date" value="<?= e($partner['date']->format('Y-m-d')) ?>">
                         <input type="hidden" name="partner_meal_time" value="<?= e($partner['meal_time']) ?>">
                         <button type="submit" class="choice">
-                            <small class="<?= e($partner['meal_time']) ?>"><?= e(format_short_date($partner['date']) . ' · ' . MEAL_TIMES[$partner['meal_time']]) ?></small>
-                            <strong><?= e($partner['meal']) ?></strong>
+                            <?= avatar_html($partner['protein_source']) ?>
+                            <span>
+                                <small class="<?= e($partner['meal_time']) ?>"><?= e(format_short_date($partner['date']) . ' · ' . MEAL_TIMES[$partner['meal_time']]) ?></small>
+                                <strong><?= e($partner['meal']) ?></strong>
+                                <?= tags_html($partner) ?>
+                            </span>
                             <?php foreach ($partner['warnings'] as $moveWarning): ?>
                                 <span class="warning"><?= e($moveWarning) ?></span>
                             <?php endforeach ?>

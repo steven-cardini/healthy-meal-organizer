@@ -407,7 +407,7 @@ article.meal-time h2 {
 .tag-protein_source-egg { --icon: "\1F95A"; }
 .tag-protein_source-dairy_cheese { --icon: "\1F9C0"; }
 .tag-protein_source-vegan_tofu { --icon: "\1F331"; }
-.tag-protein_source-none { --icon: "\1F37D\FE0F"; }
+.tag-protein_source-none { --icon: "\26A0\FE0F"; }
 .tag-heaviness-light { --icon: "\1FAB6"; }
 .tag-heaviness-medium { --icon: "\2696\FE0F"; }
 .tag-heaviness-heavy { --icon: "\1F418"; }
@@ -644,13 +644,13 @@ fieldset.choice label:last-of-type {
     color: var(--pico-primary);
 }
 
-.meal-list .avatar {
+:is(.meal-list, .choice-list) .avatar {
     width: 2.75rem;
     height: 2.75rem;
     font-size: 1.375rem;
 }
 
-.meal-list .tags {
+:is(.meal-list, .choice-list) .tags {
     gap: 0 0.75rem;
     margin: 0.125rem 0 0;
     font-size: 0.8125rem;
@@ -829,6 +829,23 @@ button.choice small::before {
 
 button.choice .warning {
     margin-top: 0.375rem;
+}
+
+.choice-list button.choice {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: 0.875rem;
+}
+
+.choice-list button.choice > .avatar + span {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.choice-list button.choice .warning {
+    grid-column: 1 / -1;
 }
 
 .meal-list button.choice {

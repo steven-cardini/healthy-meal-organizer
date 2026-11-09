@@ -58,7 +58,7 @@ Phases 4 to 6 and "Later" are not specified yet. Earlier phases must not block t
 
 | Tag (code) | UI label | Values (code: UI label) | Meaning |
 |---|---|---|---|
-| `protein_source` | Proteinquelle | `meat`: Fleisch, `poultry`: Geflügel, `fish`: Fisch, `legumes`: Hülsenfrüchte, `egg`: Ei, `dairy_cheese`: Milchprodukte/Käse, `vegan_tofu`: Tofu/Seitan, `none`: Keine (möglichst vermeiden) | Main protein source. `meat` is all meat except poultry (beef, veal, pork, lamb, game, sausages). `none` is discouraged |
+| `protein_source` | Proteinquelle | `meat`: Fleisch, `poultry`: Geflügel, `fish`: Fisch, `legumes`: Hülsenfrüchte, `egg`: Ei, `dairy_cheese`: Milchprodukte/Käse, `vegan_tofu`: Tofu/Seitan, `none`: Keine Proteinquelle | Main protein source. `meat` is all meat except poultry (beef, veal, pork, lamb, game, sausages). `none` is discouraged (warning icon) |
 | `heaviness` | Bekömmlichkeit | `light`: Leicht, `medium`: Mittel, `heavy`: Schwer | Digestion time: 1.5–2.5 h, 3–4 h, 4–6 h or more |
 | `prep_time` | Zubereitungszeit | `quick`: Schnell (≤ 20 Min.), `medium`: Mittel (20–40 Min.), `slow`: Lang (> 40 Min.) | Time and effort to prepare |
 | `child_factor` | Kindertauglichkeit | `high_flyer`: Alle mögen es, `deconstructed`: Baukasten (einzeln servierbar), `acquired_taste`: Gewöhnungsbedürftig | How the children accept it. Baukasten: components can be served separately. Gewöhnungsbedürftig: children get a neutral side dish and raw vegetables |
@@ -71,7 +71,7 @@ Phases 4 to 6 and "Later" are not specified yet. Earlier phases must not block t
   - *Reste vom Mittagessen* / *vom Vorabend*: the same `reheats_well` meal is planned in the slot before. Then no other hint is shown.
   - *Lange Zubereitung*: `prep_time` is `slow`.
   - *Gemüsebeilage kochen* / *Rohkost dazu*: `vegetable_level` is `side_dish` / `raw_veggies_needed`.
-- **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list shows the same three tags.
+- **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list and the exchange options (FR-17) show the same three tags.
 
 ## Functional requirements (phase 3)
 

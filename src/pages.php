@@ -146,9 +146,9 @@ function swap_page(PDO $db, array $config): never
         foreach ($slots as $partnerMealTime => $partner) {
             if ($entry['meal'] !== null && $partner['meal'] !== null && $partner['meal_id'] !== $entry['meal_id']) {
                 $partnerDate = parse_date($key);
-                $partners[] = ['date' => $partnerDate, 'meal_time' => $partnerMealTime, 'meal' => $partner['meal'],
+                $partners[] = ['date' => $partnerDate, 'meal_time' => $partnerMealTime,
                     'warnings' => array_filter([move_warning($entry, $date, $partnerDate),
-                        move_warning($partner, $partnerDate, $date)])];
+                        move_warning($partner, $partnerDate, $date)])] + $partner;
             }
         }
     }

@@ -17,7 +17,7 @@ const MEAL_TAGS = [
     'protein_source' => ['label' => 'Proteinquelle', 'values' => [
         'meat' => 'Fleisch', 'poultry' => 'Geflügel', 'fish' => 'Fisch', 'legumes' => 'Hülsenfrüchte',
         'egg' => 'Ei', 'dairy_cheese' => 'Milchprodukte/Käse', 'vegan_tofu' => 'Tofu/Seitan',
-        'none' => 'Keine (möglichst vermeiden)',
+        'none' => 'Keine Proteinquelle',
     ]],
     'heaviness' => ['label' => 'Bekömmlichkeit', 'values' => [
         'light' => 'Leicht', 'medium' => 'Mittel', 'heavy' => 'Schwer',
