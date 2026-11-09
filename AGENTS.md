@@ -51,3 +51,4 @@ When writing or editing code, strictly follow these non-negotiable rules:
 7. **CSRF:** Every POST form MUST include and verify the session CSRF token.
 8. **Language:** All UI texts are German (Swiss spelling without "ß", informal "du"). Use the terms from `docs/glossary.md`.
 9. **Mobile-First:** Every page MUST work on phones and larger screens.
+10. **Service Worker Cache:** When a file listed in `PRECACHE` in `public/sw.js` changes (e.g. `app.css`), bump `CACHE` there in the same commit.
