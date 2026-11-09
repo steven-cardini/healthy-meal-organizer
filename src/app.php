@@ -223,15 +223,15 @@ function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bo
         . $hints . '</div>';
 }
 
-/** Values of SUMMARY_TAGS with their icons. $meal: row with these tag columns. */
+/** Values of SUMMARY_TAGS with their icons. $meal: row with these tag columns. Spans, as buttons allow no lists. */
 function tags_html(array $meal): string
 {
     $items = '';
     foreach (SUMMARY_TAGS as $tag) {
-        $items .= '<li class="' . e(tag_class($tag, $meal[$tag])) . '"><span class="visually-hidden">'
-            . e(MEAL_TAGS[$tag]['label']) . ': </span>' . e(MEAL_TAGS[$tag]['values'][$meal[$tag]]) . '</li>';
+        $items .= '<span role="listitem" class="' . e(tag_class($tag, $meal[$tag])) . '"><span class="visually-hidden">'
+            . e(MEAL_TAGS[$tag]['label']) . ': </span>' . e(MEAL_TAGS[$tag]['values'][$meal[$tag]]) . '</span>';
     }
-    return '<ul class="tags" aria-label="Eigenschaften">' . $items . '</ul>';
+    return '<span class="tags" role="list" aria-label="Eigenschaften">' . $items . '</span>';
 }
 
 function avatar_html(string $proteinSource): string

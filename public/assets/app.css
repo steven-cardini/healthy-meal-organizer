@@ -285,12 +285,7 @@ article.meal-time h2 {
     font-size: 0.875rem;
 }
 
-.tags li {
-    margin: 0;
-    list-style: none;
-}
-
-:is(.tags li, .hints li, fieldset.tag label)::before {
+:is(.tags > span, .hints li, fieldset.tag label)::before {
     content: var(--icon) / "";
     margin-right: 0.375em;
 }

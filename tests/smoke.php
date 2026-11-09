@@ -181,9 +181,9 @@ check('week view: hints below the meal, no tags', slot_html($hintEntries, $d('20
 $dayHtml = slot_html($hintEntries, $d('2026-01-18'), 'dinner', true);
 check('day view: protein avatar, summary tags with label and icon class, hints', str_contains($dayHtml,
     '<span class="avatar tag-protein_source-meat" aria-hidden="true"></span>')
-    && str_contains($dayHtml, '<li class="tag-prep_time-slow"><span class="visually-hidden">Zubereitungszeit: </span>'
-        . 'Lang (&gt; 40 Min.)</li>')
-    && substr_count($dayHtml, '<li class="tag-') === count(SUMMARY_TAGS)
+    && str_contains($dayHtml, '<span role="listitem" class="tag-prep_time-slow"><span class="visually-hidden">'
+        . 'Zubereitungszeit: </span>Lang (&gt; 40 Min.)</span>')
+    && substr_count($dayHtml, '<span role="listitem" class="tag-') === count(SUMMARY_TAGS)
     && str_contains($dayHtml, '<li class="hint-slow">Lange Zubereitung</li>'));
 
 // Swaps: planning week Saturday 2026-01-17 to Friday 2026-01-23.
@@ -423,7 +423,7 @@ check('saving the new meal fills the slot', redirects_to(request('POST', '/meals
     ['csrf' => $token, 'cycle_day' => $cycleDay, 'meal_time' => 'lunch'] + $roesti), "/plan#slot-$cycleDay-lunch"));
 $day = request('GET', '/');
 check('day view shows the meal (HTML-escaped) with tags and hints',
-    str_contains($day['body'], '<p class="meal-name">Rösti &lt;script&gt;x&lt;/script&gt;</p><ul class="tags"')
+    str_contains($day['body'], '<p class="meal-name">Rösti &lt;script&gt;x&lt;/script&gt;</p><span class="tags"')
     && str_contains($day['body'], '<ul class="hints" aria-label="Hinweise"><li class="hint-slow">Lange Zubereitung</li>'
         . '<li class="hint-side_dish">Gemüsebeilage kochen</li></ul>')
     && !str_contains($day['body'], '<script>x'));
@@ -468,7 +468,7 @@ $meals = request('GET', '/meals');
 preg_match_all('~href="/meals/edit\?id=(\d+)"~', $meals['body'], $match);
 check('meal list links both meals and shows their uses', $meals['status'] === 200 && count($match[1]) === 2
     && str_contains($meals['body'], '1× im Plan') && str_contains($meals['body'], 'Nicht im Plan')
-    && substr_count($meals['body'], '<ul class="tags"') === 2
+    && substr_count($meals['body'], '<span class="tags"') === 2
     && str_contains($meals['body'], 'href="/meals/new"'));
 [$roestiId, $spaghettiId] = $match[1];
 $edit = request('GET', "/meals/edit?id=$roestiId");
@@ -530,7 +530,8 @@ check('week view shows the swapped meal', str_contains(request('GET', '/week')['
 $swap = request('GET', $swapUrl('/swap', 'lunch'));
 check('swap page: partner until Friday, meal list, warning for unused ingredients', $swap['status'] === 200
     && str_contains($swap['body'], 'name="partner_meal_time" value="dinner"') && str_contains($swap['body'], '<strong>Pasta</strong>')
-    && substr_count($swap['body'], 'name="meal_id"') === 2
+    && substr_count($swap['body'], 'name="meal_id"') === 2 && substr_count($swap['body'], '<span class="tags"') === 3
+    && !preg_match('~<button(?:(?!</button>).)*<(?:ul|li|div|p)\b~s', $swap['body'])
     && str_contains($swap['body'], 'Die Zutaten für Rösti bleiben übrig und halten nur wenige Tage.')
     && str_contains($swap['body'], 'href="' . e($swapUrl('/meals/new', 'lunch')) . '"'));
 $filtered = request('GET', $swapUrl('/swap', 'lunch') . '&protein_source=fish&prep_time=x')['body'];
