@@ -12,8 +12,9 @@
             <?php if ($isToday): ?><span class="relative-day">Heute</span><?php endif ?>
         </h2>
         <?php foreach (MEAL_TIMES as $mealTime => $label): ?>
-            <div class="week-slot <?= e($mealTime) ?>">
-                <h3><span class="visually-hidden"><?= e($label) ?></span></h3>
+            <?php $past = is_past($day, $mealTime) ?>
+            <div class="week-slot <?= e($mealTime) ?><?= $past ? ' past' : '' ?>">
+                <h3><span class="visually-hidden"><?= e($label) ?><?= $past ? ' (vorbei)' : '' ?></span></h3>
                 <div><?= slot_html($entries, $day, $mealTime) ?></div>
             </div>
         <?php endforeach ?>

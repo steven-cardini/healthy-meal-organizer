@@ -70,9 +70,9 @@ Each slot is a form with a choice *Gericht* / *Notiz* and one text field (sugges
 
 What is cooked on a date (`load_entries()`): the swap of that date if there is one, otherwise the plan slot. The day and week view, and the hints, use these entries.
 
-- Swappable: from today until Friday of the current planning week (`is_swappable()`); other dates redirect to the day view with a message.
+- Swappable: slots that are not past (`is_past()`) until Friday of the current planning week (`is_swappable()`); other slots redirect to the day view with a message.
 - An exchange writes two rows, each pointing to the other slot (`partner_date`, `partner_meal_time`). Any later swap of a slot overwrites its row and clears its partner.
-- *Zurücksetzen* deletes the row of the slot, then repeatedly every row in the same planning week whose partner is a deleted slot (FR-19).
+- *Zurücksetzen* deletes the row of the slot, then repeatedly every row in the same planning week whose partner is a deleted slot, except past slots (FR-19).
 - Freshness: `fresh_until()` (`src/calendar.php`), warnings in `move_warning()` and `unused_warning()` (`src/app.php`).
 
 ## Meal form

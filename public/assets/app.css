@@ -703,7 +703,57 @@ fieldset.tag label {
     margin-bottom: 0;
 }
 
-/* Swap (FR-16 to FR-21) */
+/* Past meal times (FR-4) */
+
+.past {
+    filter: grayscale(1);
+}
+
+article.meal-time.past {
+    background-image: none;
+}
+
+.past :is(h2, .meal-name) {
+    color: var(--pico-muted-color);
+}
+
+/* Swap (FR-16 to FR-21): actions behind a "⋯" button in the top right corner (D-36) */
+
+article.meal-time {
+    position: relative;
+}
+
+details.slot-menu {
+    margin: 0;
+}
+
+details.slot-menu > summary {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0;
+    border-radius: 50%;
+    color: var(--pico-muted-color);
+    font-size: 1.5rem;
+}
+
+details.slot-menu > summary::before {
+    content: "\22EF" / "";
+}
+
+details.slot-menu > summary::after {
+    display: none;
+}
+
+details.slot-menu > summary:is(:hover, :focus-visible),
+details.slot-menu[open] > summary {
+    background-color: color-mix(in srgb, var(--pico-muted-color) 14%, transparent);
+    color: var(--pico-color);
+}
 
 .slot-actions {
     display: flex;

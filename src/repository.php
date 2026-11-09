@@ -100,7 +100,7 @@ function exchange_meals(PDO $db, array $a, array $b): void
     });
 }
 
-/** Restores the plan for a slot and for every slot that still holds the result of an exchange with a restored slot. */
+/** Restores the plan for a slot and for every slot that still holds the result of an exchange with a restored slot, except past ones. */
 function reset_swap(PDO $db, DateTimeImmutable $date, string $mealTime): void
 {
     in_transaction($db, function () use ($db, $date, $mealTime): void {
@@ -114,7 +114,8 @@ function reset_swap(PDO $db, DateTimeImmutable $date, string $mealTime): void
         do {
             $count = count($reset);
             foreach ($exchanged as $row) {
-                if (isset($reset["$row[partner_date] $row[partner_meal_time]"])) {
+                if (isset($reset["$row[partner_date] $row[partner_meal_time]"])
+                    && !is_past(parse_date($row['date']), $row['meal_time'])) {
                     $reset["$row[date] $row[meal_time]"] = true;
                 }
             }

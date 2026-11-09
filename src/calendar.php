@@ -9,6 +9,8 @@ const CYCLE_DAYS = 14;
 /** Days the uncooked ingredients keep after delivery: upper end of the shelf_life range; long: all week. */
 const SHELF_LIFE_DAYS = ['short' => 2, 'medium' => 5];
 const WEEKDAYS = [1 => 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+/** Lunch is past from this time on, dinner from the next day on (docs/decisions.md D-37). */
+const LUNCH_END = '14:00';
 const MONTHS = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
 function parse_date(string $value): ?DateTimeImmutable
@@ -17,10 +19,15 @@ function parse_date(string $value): ?DateTimeImmutable
     return $date !== false && $date->format('Y-m-d') === $value ? $date : null;
 }
 
+/** Local time. The environment variable MENUPLAN_NOW (e.g. "2026-01-21 14:00") fixes it for the smoke tests. */
+function now(): DateTimeImmutable
+{
+    return new DateTimeImmutable(getenv('MENUPLAN_NOW') ?: 'now', new DateTimeZone(TIME_ZONE));
+}
+
 function today(): DateTimeImmutable
 {
-    $local = new DateTimeImmutable('now', new DateTimeZone(TIME_ZONE));
-    return new DateTimeImmutable($local->format('Y-m-d'), new DateTimeZone('UTC'));
+    return new DateTimeImmutable(now()->format('Y-m-d'), new DateTimeZone('UTC'));
 }
 
 function add_days(DateTimeImmutable $date, int $days): DateTimeImmutable
@@ -63,10 +70,17 @@ function planning_week_start(DateTimeImmutable $date): DateTimeImmutable
     return add_days($date, -(((int)$date->format('N') + 1) % 7));
 }
 
-/** Whether a slot on $date can be swapped: today until Friday of the current planning week. */
-function is_swappable(DateTimeImmutable $date): bool
+/** Whether a slot is over: an earlier date, or today's lunch from LUNCH_END on. */
+function is_past(DateTimeImmutable $date, string $mealTime): bool
 {
-    return $date >= today() && $date <= add_days(planning_week_start(today()), 6);
+    $today = today();
+    return $date < $today || ($date == $today && $mealTime === 'lunch' && now()->format('H:i') >= LUNCH_END);
+}
+
+/** Whether a slot can be swapped: not past, until Friday of the current planning week. */
+function is_swappable(DateTimeImmutable $date, string $mealTime): bool
+{
+    return !is_past($date, $mealTime) && $date <= add_days(planning_week_start(today()), 6);
 }
 
 /** Last day the uncooked ingredients keep, counted from the start of the planning week; null: all week (FR-20). */

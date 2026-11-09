@@ -19,7 +19,6 @@ function day_page(PDO $db, array $config): never
         },
         'cycleWeek' => cycle_week(cycle_day($date, $cycleStart)),
         'entries' => load_entries($db, add_days($date, -1), add_days($date, 1), $cycleStart),
-        'swappable' => is_swappable($date),
         'previous' => add_days($date, -1),
         'next' => add_days($date, 1),
     ], $isToday ? 'day' : '');
@@ -112,8 +111,8 @@ function swap_slot_param(array $input): ?array
     if ($date === null || !in_array($mealTime, array_keys(MEAL_TIMES), true)) {
         render_error(400, 'Ungültige Anfrage.');
     }
-    if (!is_swappable($date)) {
-        set_flash('Ändern geht nur von heute bis Freitag.', true);
+    if (!is_swappable($date, $mealTime)) {
+        set_flash('Ändern geht nur von jetzt bis Freitag.', true);
         redirect(day_url($date));
     }
     return [$date, $mealTime];
@@ -129,7 +128,7 @@ function swap_url(string $path, DateTimeImmutable $date, string $mealTime): stri
     return $path . '?' . http_build_query(['date' => $date->format('Y-m-d'), 'meal_time' => $mealTime]);
 }
 
-/** Entries from today until Friday of the planning week: the slots that can be swapped. */
+/** Entries from today until Friday of the planning week; today's lunch may be past (is_swappable()). */
 function load_swappable_entries(PDO $db, array $config): array
 {
     return load_entries($db, today(), add_days(planning_week_start(today()), 6), parse_date($config['cycle_start_date']));
@@ -144,8 +143,9 @@ function swap_page(PDO $db, array $config): never
     $partners = [];
     foreach ($entries as $key => $slots) {
         foreach ($slots as $partnerMealTime => $partner) {
-            if ($entry['meal'] !== null && $partner['meal'] !== null && $partner['meal_id'] !== $entry['meal_id']) {
-                $partnerDate = parse_date($key);
+            $partnerDate = parse_date($key);
+            if ($entry['meal'] !== null && $partner['meal'] !== null && $partner['meal_id'] !== $entry['meal_id']
+                && !is_past($partnerDate, $partnerMealTime)) {
                 $partners[] = ['date' => $partnerDate, 'meal_time' => $partnerMealTime,
                     'warnings' => array_filter([move_warning($entry, $date, $partnerDate),
                         move_warning($partner, $partnerDate, $date)])] + $partner;

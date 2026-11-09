@@ -8,24 +8,28 @@
 </hgroup>
 <?php foreach (MEAL_TIMES as $mealTime => $label): ?>
     <?php $entry = $entries[$date->format('Y-m-d')][$mealTime] ?>
-    <article class="meal-time <?= e($mealTime) ?>">
-        <h2><?= e($label) ?></h2>
+    <?php $past = is_past($date, $mealTime) ?>
+    <article class="meal-time <?= e($mealTime) ?><?= $past ? ' past' : '' ?>">
+        <h2><?= e($label) ?><?php if ($past): ?><span class="visually-hidden"> (vorbei)</span><?php endif ?></h2>
         <?= slot_html($entries, $date, $mealTime, true) ?>
-        <?php if ($swappable): ?>
-            <div class="slot-actions">
-                <a href="<?= e(swap_url('/swap', $date, $mealTime)) ?>" class="swap"><?= $entry['meal'] === null ? 'Gericht wählen' : 'Anderes Gericht' ?></a>
-                <?php if ($entry['meal'] !== null): ?>
-                    <a href="<?= e(swap_url('/swap/skip', $date, $mealTime)) ?>" class="skip">Auslassen</a>
-                <?php endif ?>
-                <?php if ($entry['swapped']): ?>
-                    <form method="post" action="/swap/reset">
-                        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                        <input type="hidden" name="date" value="<?= e($date->format('Y-m-d')) ?>">
-                        <input type="hidden" name="meal_time" value="<?= e($mealTime) ?>">
-                        <button type="submit" class="reset">Zurücksetzen</button>
-                    </form>
-                <?php endif ?>
-            </div>
+        <?php if (is_swappable($date, $mealTime)): ?>
+            <details class="slot-menu">
+                <summary aria-label="<?= e($label) ?> ändern"></summary>
+                <div class="slot-actions">
+                    <a href="<?= e(swap_url('/swap', $date, $mealTime)) ?>" class="swap"><?= $entry['meal'] === null ? 'Gericht wählen' : 'Anderes Gericht' ?></a>
+                    <?php if ($entry['meal'] !== null): ?>
+                        <a href="<?= e(swap_url('/swap/skip', $date, $mealTime)) ?>" class="skip">Auslassen</a>
+                    <?php endif ?>
+                    <?php if ($entry['swapped']): ?>
+                        <form method="post" action="/swap/reset">
+                            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                            <input type="hidden" name="date" value="<?= e($date->format('Y-m-d')) ?>">
+                            <input type="hidden" name="meal_time" value="<?= e($mealTime) ?>">
+                            <button type="submit" class="reset">Zurücksetzen</button>
+                        </form>
+                    <?php endif ?>
+                </div>
+            </details>
         <?php endif ?>
     </article>
 <?php endforeach ?>

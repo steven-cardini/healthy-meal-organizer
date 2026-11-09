@@ -34,8 +34,8 @@ Phases 4 to 6 and "Later" are not specified yet. Earlier phases must not block t
 
 ### Views
 
-- **FR-4** Day view (start page): weekday, date, cycle week, lunch and dinner. Today, tomorrow and yesterday are labelled *Heute*, *Morgen*, *Gestern*. Shows today by default, with buttons for previous day, next day and (on other days) today. Swiping left / right shows the next / previous day.
-- **FR-5** Week view: Monday to Sunday of a calendar week with lunch and dinner, the calendar week (KW) and the cycle week (Woche 1/2), and today highlighted. Shows the current week by default, with buttons for previous week, next week and (in other weeks) this week. Swiping left / right shows the next / previous week.
+- **FR-4** Day view (start page): weekday, date, cycle week, lunch and dinner. Today, tomorrow and yesterday are labelled *Heute*, *Morgen*, *Gestern*. Shows today by default, with buttons for previous day, next day and (on other days) today. Swiping left / right shows the next / previous day. Past meal times are shown in grey: lunch from 14:00, dinner from the next day.
+- **FR-5** Week view: Monday to Sunday of a calendar week with lunch and dinner, the calendar week (KW) and the cycle week (Woche 1/2), and today highlighted. Past meal times in grey (FR-4). Shows the current week by default, with buttons for previous week, next week and (in other weeks) this week. Swiping left / right shows the next / previous week.
 - **FR-6** Empty slots are shown as not planned, with a link to the slot in the plan editor.
 
 ### Editing
@@ -80,15 +80,15 @@ Phases 4 to 6 and "Later" are not specified yet. Earlier phases must not block t
 Use cases: "I would rather eat X today", "ingredient Y was discounted", "ingredient Z for today's meal is used up". The groceries for a **planning week** (Saturday to Friday) arrive on its Saturday (or Friday evening).
 
 - **FR-16** A swap changes the slot of one date only; the plan stays as it is. The day view and the week view show what is cooked on a date: the swap if there is one, otherwise the plan slot. A swapped meal is marked *getauscht*; a skipped slot shows its note, or *Ausgelassen*. Swaps are kept after their date.
-- **FR-17** In the day view, slots from today until Friday of the current planning week offer:
+- **FR-17** In the day view, slots that are not past (FR-4), until Friday of the current planning week, offer in a *⋯* menu:
   - *Anderes Gericht* (*Gericht wählen* if the slot has no meal):
-    - Exchange with a meal planned from today until Friday (*Tauschen bis Freitag*): the two slots exchange their meals. Only slots with a meal are offered, not those with the same meal. Not offered if the slot has no meal.
+    - Exchange with a meal planned until Friday that is not past (*Tauschen bis Freitag*): the two slots exchange their meals. Only slots with a meal are offered, not those with the same meal. Not offered if the slot has no meal.
     - Or a meal from the meal list (*Aus der Liste*), filtered by prep time and protein source, or a new meal (as in FR-8). Only this slot changes.
   - *Auslassen*: only for a slot with a meal (FR-18).
   - *Zurücksetzen*: only for a swapped slot (FR-19).
   - An empty slot also keeps its link to the plan editor (FR-6).
 - **FR-18** *Auslassen* empties the slot for this date, with an optional note (e.g. "Spontaner Besuch bei den Grosseltern").
-- **FR-19** *Zurücksetzen* restores the plan for this slot and for every slot that still holds the result of an exchange with a restored slot. A new swap on a slot replaces its previous swap.
+- **FR-19** *Zurücksetzen* restores the plan for this slot and for every slot that still holds the result of an exchange with a restored slot, except past slots. A new swap on a slot replaces its previous swap.
 - **FR-20** Freshness warnings, shown before choosing, never blocking. The uncooked ingredients keep from the Saturday of the planning week until Monday (`short`), Thursday (`medium`) or all week (`long`), i.e. the upper end of the `shelf_life` range.
   - At each exchange option: a meal would move to a later date after its ingredients keep.
   - At *Aus der Liste* and *Auslassen*: the current meal is `short` or `medium`, so its ingredients would be left over.

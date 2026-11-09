@@ -186,7 +186,8 @@ check('day view: protein avatar, summary tags with label and icon class, hints',
     && substr_count($dayHtml, '<span role="listitem" class="tag-') === count(SUMMARY_TAGS)
     && str_contains($dayHtml, '<li class="hint-slow">Lange Zubereitung</li>'));
 
-// Swaps: planning week Saturday 2026-01-17 to Friday 2026-01-23.
+// Swaps: planning week Saturday 2026-01-17 to Friday 2026-01-23, now is its Saturday noon.
+putenv('MENUPLAN_NOW=2026-01-17 12:00');
 $swapDb = open_db("$tmp/swaps");
 $swapMeal = fn(string $name, array $tags = []): int => create_meal($swapDb, meal_input($name, $tags));
 $a = $swapMeal('A', ['leftovers' => 'reheats_well']);
@@ -232,6 +233,20 @@ check('chained exchanges', $meals()['2026-01-19']['lunch'] === '*C' && $meals()[
 reset_swap($swapDb, $thu, 'lunch');
 check('reset of a chain restores all linked slots', $meals()['2026-01-19']['lunch'] === 'A'
     && $meals()['2026-01-21']['lunch'] === 'B' && $meals()['2026-01-22']['lunch'] === 'C');
+putenv('MENUPLAN_NOW=2026-01-21 13:59');
+check('lunch is not past before 14:00', !is_past($wed, 'lunch') && is_swappable($wed, 'lunch'));
+putenv('MENUPLAN_NOW=2026-01-21 14:00');
+check('lunch is past from 14:00, dinner only from the next day', is_past($wed, 'lunch') && !is_past($wed, 'dinner')
+    && is_past($d('2026-01-20'), 'dinner') && !is_past($thu, 'lunch'));
+check('past slots and slots after Friday cannot be swapped', !is_swappable($wed, 'lunch') && is_swappable($wed, 'dinner')
+    && is_swappable($d('2026-01-23'), 'dinner') && !is_swappable($d('2026-01-24'), 'lunch'));
+putenv('MENUPLAN_NOW=2026-01-21 12:00');
+exchange_meals($swapDb, [$wed, 'lunch', $b], [$thu, 'lunch', $c]);
+putenv('MENUPLAN_NOW=2026-01-21 14:00');
+reset_swap($swapDb, $thu, 'lunch');
+check('reset leaves a past partner slot unchanged', $meals()['2026-01-21']['lunch'] === '*C' && $meals()['2026-01-22']['lunch'] === 'C');
+reset_swap($swapDb, $wed, 'lunch');
+putenv('MENUPLAN_NOW=2026-01-17 12:00');
 save_swap($swapDb, $mon, 'dinner', $a, null);
 $swapEntries = $entries();
 check('skip with a note, meal from the list, hints follow the swapped meals',
@@ -251,6 +266,7 @@ check('meal swapped in from today on cannot be deleted',
 delete_meal($swapDb, $e, $thu);
 check('meal only in past swaps is deleted with its swaps', find_meal($swapDb, $e) === null
     && $meals()['2026-01-21']['dinner'] === '-');
+putenv('MENUPLAN_NOW');
 
 $now = 1_000_000;
 for ($i = 0; $i < 4; $i++) {
@@ -278,6 +294,9 @@ check('test data is not loaded if the plan has only a note', !load_test_data_if_
 
 // --- HTTP ----------------------------------------------------------------------
 
+// Today at noon: lunch is not past yet.
+$noon = now()->format('Y-m-d') . ' 12:00';
+putenv("MENUPLAN_NOW=$noon");
 $monday = monday_of(today());
 $config = "$tmp/config.php";
 file_put_contents($config, '<?php return ' . var_export([
@@ -290,7 +309,7 @@ $port = (int)substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
 fclose($socket);
 $server = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", '-t', ROOT_DIR . '/public', ROOT_DIR . '/router.php'],
     [1 => ['file', '/dev/null', 'w'], 2 => ['file', "$tmp/server.log", 'w']], $pipes, null,
-    ['MENUPLAN_CONFIG' => $config]);
+    ['MENUPLAN_CONFIG' => $config, 'MENUPLAN_NOW' => $noon]);
 register_shutdown_function(fn() => proc_terminate($server));
 for ($i = 0; $i < 50 && @fsockopen('127.0.0.1', $port) === false; $i++) {
     usleep(100_000);
@@ -501,16 +520,22 @@ $slotInput = fn(string $mealTime, string $date = ''): array => ['csrf' => $token
 $swapUrl = fn(string $path, string $mealTime, string $date = ''): string => $path . '?' . http_build_query(['date' => $date ?: $todayKey, 'meal_time' => $mealTime]);
 $day = request('GET', '/')['body'];
 check('day view: meal slot can be changed or skipped, note slot only changed',
-    str_contains($day, 'href="' . e($swapUrl('/swap', 'lunch')) . '" class="swap">Anderes Gericht</a>')
+    substr_count($day, '<details class="slot-menu">') === 2 && str_contains($day, '<summary aria-label="Mittagessen ändern">')
+    && !str_contains($day, ' past') && str_contains($day, 'href="' . e($swapUrl('/swap', 'lunch')) . '" class="swap">Anderes Gericht</a>')
     && str_contains($day, 'href="' . e($swapUrl('/swap/skip', 'lunch')) . '" class="skip">Auslassen</a>')
     && str_contains($day, 'href="' . e($swapUrl('/swap', 'dinner')) . '" class="swap">Gericht wählen</a>')
     && !str_contains($day, e($swapUrl('/swap/skip', 'dinner'))) && !str_contains($day, 'Zurücksetzen'));
 $yesterday = add_days(today(), -1)->format('Y-m-d');
-check('no swap actions on past dates or after Friday', !str_contains(request('GET', "/?date=$yesterday")['body'], 'slot-actions')
+$yesterdayView = request('GET', "/?date=$yesterday")['body'];
+check('past meal times shown as past', substr_count($yesterdayView, '<article class="meal-time lunch past">') === 1
+    && substr_count($yesterdayView, '<span class="visually-hidden"> (vorbei)</span>') === 2);
+check('week view: meal times before today are past', substr_count(request('GET', '/week')['body'], ' past">')
+    === 2 * ((int)today()->format('N') - 1));
+check('no swap actions on past dates or after Friday', !str_contains($yesterdayView, 'slot-actions')
     && !str_contains(request('GET', '/?date=' . add_days(today(), 7)->format('Y-m-d'))['body'], 'slot-actions'));
 check('swap page for a past date: back to the day with a message',
     redirects_to(request('GET', $swapUrl('/swap', 'lunch', $yesterday)), "/?date=$yesterday")
-    && str_contains(request('GET', "/?date=$yesterday")['body'], 'Ändern geht nur von heute bis Freitag.'));
+    && str_contains(request('GET', "/?date=$yesterday")['body'], 'Ändern geht nur von jetzt bis Freitag.'));
 check('swap page with an invalid slot is rejected', request('GET', '/swap?date=x&meal_time=lunch')['status'] === 400
     && request('GET', $swapUrl('/swap', 'brunch'))['status'] === 400
     && request('POST', '/swap/reset', $slotInput('brunch'))['status'] === 400);

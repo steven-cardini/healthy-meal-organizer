@@ -37,6 +37,7 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Vegetable level     | Gemüse             | `vegetable_level`    | Whether a meal contains enough vegetables. | 2 |
 | Hint                | –                  | `slot_hints`         | Short note below a meal in the day and week view, e.g. "Rohkost dazu". | 2 |
 | Summary tags        | –                  | `SUMMARY_TAGS`       | Tags shown in the day view and the meal list: protein source, prep time, kid suitability. | 2 |
+| Past                | vorbei             | `past`               | Meal time that is over: lunch from 14:00, dinner from the next day. | 3 |
 | Planning week       | –                  | `planning_week`      | Saturday to Friday. The groceries for it arrive on its Saturday (or Friday evening). | 3 |
 | Swap                | Anderes Gericht / getauscht | `swap`      | One-time change of a slot on a specific date: another meal, or skipped. A swapped meal is marked *getauscht*. | 3 |
 | Exchange            | Tauschen           | `exchange`           | Swap in which two slots of the planning week exchange their meals. | 3 |
