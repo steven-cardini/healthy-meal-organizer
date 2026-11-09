@@ -37,7 +37,6 @@ document.addEventListener('touchmove', (event) => {
     }
     swipe.dx = dx;
     swipe.main.style.transform = `translateX(${dx}px)`;
-    swipe.main.style.opacity = String(1 - Math.min(Math.abs(dx) / innerWidth, 1) / 2);
 }, {passive: true});
 
 function endSwipe(event) {
@@ -51,14 +50,16 @@ function endSwipe(event) {
     }
     const isFlick = Math.abs(dx) > 30 && Math.abs(dx) / (event.timeStamp - time) > 0.5;
     const link = main.querySelector(dx < 0 ? 'a[rel="next"]' : 'a[rel="prev"]');
-    main.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
     if (event.type === 'touchend' && link && (Math.abs(dx) > innerWidth / 4 || isFlick)) {
-        main.style.transform = `translateX(${Math.sign(dx) * innerWidth}px)`;
-        main.style.opacity = '0';
+        // The content stays where the finger let go; the page transition (app.css) slides it on from there.
+        try {
+            sessionStorage.setItem('swipe', JSON.stringify({type: link.rel, x: dx, y: scrollY}));
+        } catch {
+        }
         link.click();
     } else {
+        main.style.transition = 'transform 0.2s ease-out';
         main.style.transform = '';
-        main.style.opacity = '';
         main.addEventListener('transitionend', () => swipe === null && main.removeAttribute('style'), {once: true});
     }
 }
@@ -69,24 +70,22 @@ document.addEventListener('touchcancel', endSwipe, {passive: true});
 // Back / forward cache: show the content again after a swipe away from this page.
 window.addEventListener('pageshow', () => document.querySelector('main').removeAttribute('style'));
 
-// Slide direction of the page transition (app.css). Not supported or storage blocked: the page just fades.
-document.addEventListener('click', (event) => {
-    const link = event.target.closest('a[rel="prev"], a[rel="next"]');
+// Only a swipe slides to the new page; every other navigation (buttons, tab bar) shows it at once.
+window.addEventListener('pagereveal', (event) => {
+    let swiped = null;
     try {
-        if (link) {
-            sessionStorage.setItem('slide', link.rel);
-        }
+        swiped = JSON.parse(sessionStorage.getItem('swipe'));
+        sessionStorage.removeItem('swipe');
     } catch {
     }
-});
-
-window.addEventListener('pagereveal', (event) => {
-    try {
-        const slide = sessionStorage.getItem('slide');
-        sessionStorage.removeItem('slide');
-        if (slide && event.viewTransition) {
-            event.viewTransition.types.add(slide);
-        }
-    } catch {
+    if (!event.viewTransition) {
+        return;
+    }
+    if (swiped) {
+        event.viewTransition.types.add(swiped.type);
+        document.documentElement.style.setProperty('--swipe-x', `${swiped.x}px`);
+        document.documentElement.style.setProperty('--swipe-y', `${-swiped.y}px`);
+    } else {
+        event.viewTransition.skipTransition();
     }
 });

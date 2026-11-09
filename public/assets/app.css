@@ -134,7 +134,7 @@
     }
 }
 
-/* Page transitions; the slide direction is set in app.js */
+/* Page transitions: only after a swipe, all others are skipped in app.js */
 
 @media (prefers-reduced-motion: no-preference) {
     @view-transition {
@@ -157,36 +157,51 @@ body {
     overflow-x: clip;
 }
 
+/* Swipe slide: the old content moves on from where the finger let go (--swipe-x) at its scroll position
+   (--swipe-y), the new content follows one screen width behind it. Only horizontal, no fading.
+   The rest of the page changes at once. */
+html:active-view-transition-type(next, prev)::view-transition-group(main),
+html:active-view-transition-type(next, prev)::view-transition-old(root),
+html:active-view-transition-type(next, prev)::view-transition-new(root) {
+    animation: none;
+}
+
+html:active-view-transition-type(next, prev)::view-transition-old(root) {
+    visibility: hidden;
+}
+
 html:active-view-transition-type(next)::view-transition-old(main) {
-    animation: 0.25s ease-in both slide-out-left;
+    animation: 0.3s ease-out both slide-to-left;
 }
 
 html:active-view-transition-type(next)::view-transition-new(main) {
-    animation: 0.25s ease-out both slide-in-right;
+    animation: 0.3s ease-out both slide-from-right;
 }
 
 html:active-view-transition-type(prev)::view-transition-old(main) {
-    animation: 0.25s ease-in both slide-out-right;
+    animation: 0.3s ease-out both slide-to-right;
 }
 
 html:active-view-transition-type(prev)::view-transition-new(main) {
-    animation: 0.25s ease-out both slide-in-left;
+    animation: 0.3s ease-out both slide-from-left;
 }
 
-@keyframes slide-out-left {
-    to { opacity: 0; transform: translateX(-25%); }
+@keyframes slide-to-left {
+    from { transform: translate(var(--swipe-x), var(--swipe-y)); }
+    to { transform: translate(-100vw, var(--swipe-y)); }
 }
 
-@keyframes slide-in-right {
-    from { opacity: 0; transform: translateX(25%); }
+@keyframes slide-from-right {
+    from { transform: translateX(calc(var(--swipe-x) + 100vw)); }
 }
 
-@keyframes slide-out-right {
-    to { opacity: 0; transform: translateX(25%); }
+@keyframes slide-to-right {
+    from { transform: translate(var(--swipe-x), var(--swipe-y)); }
+    to { transform: translate(100vw, var(--swipe-y)); }
 }
 
-@keyframes slide-in-left {
-    from { opacity: 0; transform: translateX(-25%); }
+@keyframes slide-from-left {
+    from { transform: translateX(calc(var(--swipe-x) - 100vw)); }
 }
 
 /* Meal times */

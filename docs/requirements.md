@@ -19,6 +19,7 @@ One household. All members share one password and have the same rights (view and
 | 3       | Flexible cycle length: more cycle weeks (e.g. Woche 3 and 4). Minimum and maximum still open |
 | 4       | Swap a planned meal on a specific date (e.g. for a quicker one), recipes, shopping list   |
 | 5       | Health balance based on scientific recommendations (e.g. Swiss food pyramid), using the meal tags |
+| Later   | Nice to have, low priority: while swiping, the previous / next day or week is already shown next to the content (loaded in the background), so the switch needs no wait |
 
 Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [architecture.md](architecture.md#extension-points)).
 
