@@ -8,6 +8,13 @@ function day_page(PDO $db, array $config): never
     $today = today();
     $cycleStart = parse_date($config['cycle_start_date']);
     $isToday = $date == $today;
+    $entries = load_entries($db, add_days($date, -1), add_days($date, 1), $cycleStart);
+    $resetWarnings = [];
+    foreach (array_keys(MEAL_TIMES) as $mealTime) {
+        if ($entries[$date->format('Y-m-d')][$mealTime]['swapped'] && is_swappable($date, $mealTime)) {
+            $resetWarnings[$mealTime] = reset_warning(reset_slots($db, $date, $mealTime), $date, $mealTime);
+        }
+    }
     render('day', format_long_date($date), [
         'date' => $date,
         'isToday' => $isToday,
@@ -18,7 +25,8 @@ function day_page(PDO $db, array $config): never
             default => null,
         },
         'cycleWeek' => cycle_week(cycle_day($date, $cycleStart)),
-        'entries' => load_entries($db, add_days($date, -1), add_days($date, 1), $cycleStart),
+        'entries' => $entries,
+        'resetWarnings' => $resetWarnings,
         'previous' => add_days($date, -1),
         'next' => add_days($date, 1),
     ], $isToday ? 'day' : '');
@@ -134,7 +142,10 @@ function load_swappable_entries(PDO $db, array $config): array
     return load_entries($db, today(), add_days(planning_week_start(today()), 6), parse_date($config['cycle_start_date']));
 }
 
-/** "Anderes Gericht": exchange with a meal until Friday, or a meal from the meal list (FR-17). */
+/**
+ * "Anderes Gericht": exchange with a meal until Friday, or a meal from the meal list.
+ * "Gericht planen" (slot without a meal): move a meal from until Friday here, or a meal from the meal list (FR-17).
+ */
 function swap_page(PDO $db, array $config): never
 {
     [$date, $mealTime] = swap_slot_param($_GET) ?? render_error(400, 'Ungültige Anfrage.');
@@ -144,10 +155,10 @@ function swap_page(PDO $db, array $config): never
     foreach ($entries as $key => $slots) {
         foreach ($slots as $partnerMealTime => $partner) {
             $partnerDate = parse_date($key);
-            if ($entry['meal'] !== null && $partner['meal'] !== null && $partner['meal_id'] !== $entry['meal_id']
+            if ($partner['meal'] !== null && $partner['meal_id'] !== $entry['meal_id']
                 && !is_past($partnerDate, $partnerMealTime)) {
                 $partners[] = ['date' => $partnerDate, 'meal_time' => $partnerMealTime,
-                    'warnings' => array_filter([move_warning($entry, $date, $partnerDate),
+                    'warnings' => array_filter([$entry['meal'] === null ? null : move_warning($entry, $date, $partnerDate),
                         move_warning($partner, $partnerDate, $date)])] + $partner;
             }
         }
@@ -160,7 +171,7 @@ function swap_page(PDO $db, array $config): never
     $meals = array_filter(list_meals($db), fn(array $meal): bool =>
         array_filter($filters, fn(string $value, string $tag): bool => $value !== '' && $meal[$tag] !== $value,
             ARRAY_FILTER_USE_BOTH) === []);
-    render('swap', $entry['meal'] === null ? 'Gericht wählen' : 'Anderes Gericht', [
+    render('swap', $entry['meal'] === null ? 'Gericht planen' : 'Anderes Gericht', [
         'date' => $date,
         'mealTime' => $mealTime,
         'entry' => $entry,
@@ -171,11 +182,17 @@ function swap_page(PDO $db, array $config): never
     ], '');
 }
 
+/** @return array{DateTimeImmutable, string} [date, meal_time] of the partner slot of an exchange or a move. */
+function partner_slot_param(): array
+{
+    return swap_slot_param(['date' => $_POST['partner_date'] ?? null, 'meal_time' => $_POST['partner_meal_time'] ?? null])
+        ?? render_error(400, 'Ungültige Anfrage.');
+}
+
 function swap_exchange_action(PDO $db, array $config): never
 {
     [$date, $mealTime] = swap_slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
-    [$partnerDate, $partnerMealTime] = swap_slot_param(['date' => $_POST['partner_date'] ?? null,
-        'meal_time' => $_POST['partner_meal_time'] ?? null]) ?? render_error(400, 'Ungültige Anfrage.');
+    [$partnerDate, $partnerMealTime] = partner_slot_param();
     $entries = load_swappable_entries($db, $config);
     $mealId = $entries[$date->format('Y-m-d')][$mealTime]['meal_id'];
     $partnerMealId = $entries[$partnerDate->format('Y-m-d')][$partnerMealTime]['meal_id'];
@@ -185,6 +202,22 @@ function swap_exchange_action(PDO $db, array $config): never
     }
     exchange_meals($db, [$date, $mealTime, $mealId], [$partnerDate, $partnerMealTime, $partnerMealId]);
     set_flash('Getauscht.', false);
+    redirect(day_url($date));
+}
+
+/** Moves the meal of the partner slot to this slot, which has no meal (FR-17). */
+function swap_move_action(PDO $db, array $config): never
+{
+    [$date, $mealTime] = swap_slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
+    [$partnerDate, $partnerMealTime] = partner_slot_param();
+    $entries = load_swappable_entries($db, $config);
+    $partnerMealId = $entries[$partnerDate->format('Y-m-d')][$partnerMealTime]['meal_id'];
+    if ($entries[$date->format('Y-m-d')][$mealTime]['meal_id'] !== null || $partnerMealId === null) {
+        set_flash('Der Plan hat sich inzwischen geändert. Wähle nochmals.', true);
+        redirect(swap_url('/swap', $date, $mealTime));
+    }
+    move_meal($db, [$date, $mealTime], [$partnerDate, $partnerMealTime, $partnerMealId]);
+    set_flash('Verschoben.', false);
     redirect(day_url($date));
 }
 

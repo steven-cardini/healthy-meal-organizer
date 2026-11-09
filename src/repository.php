@@ -31,17 +31,28 @@ function load_plan(PDO $db): array
 
 /**
  * What is cooked from $from to $to: the swap of a date if there is one, otherwise the plan slot.
- * @return array<string, array<string, array{cycle_day: int, swapped: bool, meal_id: ?int, note: ?string, meal: ?string, ...}>>
- *     [Y-m-d][meal_time]
+ * moved: the meal was moved here; moved_away: the meal was moved to another slot, moved_to: to which one, while
+ * that slot still holds it (FR-16).
+ * @return array<string, array<string, array{cycle_day: int, swapped: bool, moved: bool, moved_away: bool,
+ *     moved_to: ?array{DateTimeImmutable, string}, meal_id: ?int, note: ?string, meal: ?string, ...}>> [Y-m-d][meal_time]
  */
 function load_entries(PDO $db, DateTimeImmutable $from, DateTimeImmutable $to, DateTimeImmutable $cycleStart): array
 {
-    $stmt = $db->prepare('SELECT s.date, s.meal_time, ' . ENTRY_COLUMNS
-        . ' FROM swap s LEFT JOIN meal m ON m.id = s.meal_id WHERE s.date BETWEEN ? AND ?');
+    $stmt = $db->prepare('SELECT s.date, s.meal_time, s.partner_date, s.partner_meal_time, s.moved,
+            p.partner_date = s.date AND p.partner_meal_time = s.meal_time AS partner_linked, ' . ENTRY_COLUMNS
+        . ' FROM swap s LEFT JOIN meal m ON m.id = s.meal_id
+            LEFT JOIN swap p ON p.date = s.partner_date AND p.meal_time = s.partner_meal_time
+            WHERE s.date BETWEEN ? AND ?');
     $stmt->execute([$from->format('Y-m-d'), $to->format('Y-m-d')]);
     $swaps = [];
     foreach ($stmt as $row) {
-        $swaps[$row['date']][$row['meal_time']] = array_diff_key($row, ['date' => 0, 'meal_time' => 0]);
+        $movedAway = $row['meal_id'] === null && $row['partner_date'] !== null;
+        $swaps[$row['date']][$row['meal_time']] = [
+            'moved' => $row['moved'] === 1,
+            'moved_away' => $movedAway,
+            'moved_to' => $movedAway && $row['partner_linked'] === 1
+                ? [parse_date($row['partner_date']), $row['partner_meal_time']] : null,
+        ] + array_diff_key($row, array_flip(['date', 'meal_time', 'partner_date', 'partner_meal_time', 'partner_linked']));
     }
     $plan = load_plan($db);
     $entries = [];
@@ -51,7 +62,8 @@ function load_entries(PDO $db, DateTimeImmutable $from, DateTimeImmutable $to, D
         foreach (array_keys(MEAL_TIMES) as $mealTime) {
             $swap = $swaps[$key][$mealTime] ?? null;
             $entries[$key][$mealTime] = ['cycle_day' => $cycleDay, 'swapped' => $swap !== null]
-                + ($swap ?? $plan[$cycleDay][$mealTime] ?? EMPTY_ENTRY);
+                + ($swap ?? ['moved' => false, 'moved_away' => false, 'moved_to' => null]
+                    + ($plan[$cycleDay][$mealTime] ?? EMPTY_ENTRY));
         }
     }
     return $entries;
@@ -59,18 +71,20 @@ function load_entries(PDO $db, DateTimeImmutable $from, DateTimeImmutable $to, D
 
 /**
  * Sets the slot of a date to a meal, a note, or neither (skipped).
- * @param ?array{DateTimeImmutable, string} $partner [date, meal_time] of the other slot of an exchange
+ * @param ?array{DateTimeImmutable, string} $partner [date, meal_time] of the other slot of an exchange or a move
+ * @param bool $moved the meal was moved here from $partner
  */
 function save_swap(PDO $db, DateTimeImmutable $date, string $mealTime, ?int $mealId, ?string $note,
-    ?array $partner = null): void
+    ?array $partner = null, bool $moved = false): void
 {
     try {
-        $db->prepare('INSERT INTO swap (date, meal_time, meal_id, note, partner_date, partner_meal_time)
-            VALUES (?, ?, ?, ?, ?, ?)
+        $db->prepare('INSERT INTO swap (date, meal_time, meal_id, note, partner_date, partner_meal_time, moved)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (date, meal_time) DO UPDATE SET meal_id = excluded.meal_id, note = excluded.note,
-                partner_date = excluded.partner_date, partner_meal_time = excluded.partner_meal_time')
+                partner_date = excluded.partner_date, partner_meal_time = excluded.partner_meal_time,
+                moved = excluded.moved')
             ->execute([$date->format('Y-m-d'), $mealTime, $mealId, $note,
-                $partner === null ? null : $partner[0]->format('Y-m-d'), $partner[1] ?? null]);
+                $partner === null ? null : $partner[0]->format('Y-m-d'), $partner[1] ?? null, (int)$moved]);
     } catch (PDOException $e) {
         if ($e->getCode() === SQLSTATE_CONSTRAINT) {
             throw new UserError('Dieses Gericht gibt es nicht mehr.');
@@ -100,29 +114,55 @@ function exchange_meals(PDO $db, array $a, array $b): void
     });
 }
 
-/** Restores the plan for a slot and for every slot that still holds the result of an exchange with a restored slot, except past ones. */
+/** Moves the meal of $from to $to; $from is then empty. $to: [date, meal_time], $from: [date, meal_time, meal_id]. */
+function move_meal(PDO $db, array $to, array $from): void
+{
+    in_transaction($db, function () use ($db, $to, $from): void {
+        save_swap($db, $to[0], $to[1], $from[2], null, [$from[0], $from[1]], true);
+        save_swap($db, $from[0], $from[1], null, null, [$to[0], $to[1]]);
+    });
+}
+
+/**
+ * The swapped slots that *Zurücksetzen* of a slot restores: the slot and every slot linked to it by an exchange or a move
+ * (in either direction), directly or via other linked slots, except past ones (FR-19). Sorted by time.
+ * @return list<array{DateTimeImmutable, string}> [date, meal_time]
+ */
+function reset_slots(PDO $db, DateTimeImmutable $date, string $mealTime): array
+{
+    // Exchanges and moves stay within one planning week.
+    $start = planning_week_start($date);
+    $stmt = $db->prepare('SELECT date, meal_time, partner_date, partner_meal_time FROM swap WHERE date BETWEEN ? AND ?');
+    $stmt->execute([$start->format('Y-m-d'), add_days($start, 6)->format('Y-m-d')]);
+    $partners = [];
+    foreach ($stmt as $row) {
+        $partners["$row[date] $row[meal_time]"] = $row['partner_date'] === null ? null : "$row[partner_date] $row[partner_meal_time]";
+    }
+    $reset = [];
+    $slot = $date->format('Y-m-d') . " $mealTime";
+    $queue = array_key_exists($slot, $partners) ? [$slot] : [];
+    while ($queue !== []) {
+        $slot = array_pop($queue);
+        $reset[$slot] = true;
+        foreach ($partners as $other => $partner) {
+            if (($partner === $slot || $other === $partners[$slot]) && !isset($reset[$other])
+                && !is_past(parse_date(substr($other, 0, 10)), substr($other, 11))) {
+                $queue[] = $other;
+            }
+        }
+    }
+    $slots = array_map(fn(string $slot): array => [parse_date(substr($slot, 0, 10)), substr($slot, 11)], array_keys($reset));
+    usort($slots, fn(array $a, array $b): int => [$a[0], $a[1] === 'dinner'] <=> [$b[0], $b[1] === 'dinner']);
+    return $slots;
+}
+
+/** Restores the plan for the slots of reset_slots(). */
 function reset_swap(PDO $db, DateTimeImmutable $date, string $mealTime): void
 {
     in_transaction($db, function () use ($db, $date, $mealTime): void {
-        // Exchanges stay within one planning week.
-        $start = planning_week_start($date);
-        $stmt = $db->prepare('SELECT date, meal_time, partner_date, partner_meal_time FROM swap
-            WHERE partner_date IS NOT NULL AND date BETWEEN ? AND ?');
-        $stmt->execute([$start->format('Y-m-d'), add_days($start, 6)->format('Y-m-d')]);
-        $exchanged = $stmt->fetchAll();
-        $reset = [$date->format('Y-m-d') . " $mealTime" => true];
-        do {
-            $count = count($reset);
-            foreach ($exchanged as $row) {
-                if (isset($reset["$row[partner_date] $row[partner_meal_time]"])
-                    && !is_past(parse_date($row['date']), $row['meal_time'])) {
-                    $reset["$row[date] $row[meal_time]"] = true;
-                }
-            }
-        } while (count($reset) > $count);
         $delete = $db->prepare('DELETE FROM swap WHERE date = ? AND meal_time = ?');
-        foreach (array_keys($reset) as $slot) {
-            $delete->execute(explode(' ', $slot));
+        foreach (reset_slots($db, $date, $mealTime) as [$slotDate, $slotMealTime]) {
+            $delete->execute([$slotDate->format('Y-m-d'), $slotMealTime]);
         }
     });
 }

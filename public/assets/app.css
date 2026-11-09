@@ -307,7 +307,7 @@ article.meal-time h2 {
     text-decoration: none;
 }
 
-.unplanned:hover {
+a.unplanned:hover {
     border-color: var(--pico-primary);
 }
 
@@ -766,6 +766,11 @@ details.slot-menu[open] > summary {
     margin: 0;
 }
 
+.slot-actions .warning {
+    flex-basis: 100%;
+    margin: 0;
+}
+
 .slot-actions :is(a, button) {
     width: auto;
     margin: 0;
@@ -804,12 +809,19 @@ details.slot-menu[open] > summary {
     white-space: nowrap;
 }
 
-.skipped {
+.skipped,
+.moved {
     color: var(--pico-muted-color);
 }
 
 .skipped::before {
     content: "\23ED\FE0F" / "";
+    margin-right: 0.375rem;
+    font-style: normal;
+}
+
+.moved::before {
+    content: "\27A1\FE0F" / "";
     margin-right: 0.375rem;
     font-style: normal;
 }

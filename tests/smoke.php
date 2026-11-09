@@ -120,7 +120,7 @@ $schemaTags = [];
 foreach ($match as [, $column, $values]) {
     $schemaTags[$column] = preg_match_all("/'(\w+)'/", $values, $valueMatch) ? $valueMatch[1] : [];
 }
-unset($schemaTags['meal_time'], $schemaTags['partner_meal_time']);
+unset($schemaTags['meal_time'], $schemaTags['partner_meal_time'], $schemaTags['moved']);
 check('MEAL_TAGS has the same tags and values as db/schema.sql',
     $schemaTags === array_map(fn(array $definition): array => array_keys($definition['values']), MEAL_TAGS));
 
@@ -218,9 +218,8 @@ save_swap($swapDb, $wed, 'lunch', null, null);
 check('skip without a note', $meals()['2026-01-21']['lunch'] === '*-'
     && str_contains(slot_html($entries(), $wed, 'lunch'), '<em class="skipped">Ausgelassen</em>'));
 reset_swap($swapDb, $mon, 'lunch');
-check('reset after the partner changed again: only this slot', $meals()['2026-01-19']['lunch'] === 'A'
-    && $meals()['2026-01-21']['lunch'] === '*-');
-reset_swap($swapDb, $wed, 'lunch');
+check('reset after the partner changed again: also restores the partner', $meals()['2026-01-19']['lunch'] === 'A'
+    && $meals()['2026-01-21']['lunch'] === 'B');
 exchange_meals($swapDb, [$mon, 'lunch', $a], [$wed, 'lunch', $b]);
 save_swap($swapDb, $wed, 'lunch', null, 'Besuch');
 reset_swap($swapDb, $wed, 'lunch');
@@ -233,6 +232,37 @@ check('chained exchanges', $meals()['2026-01-19']['lunch'] === '*C' && $meals()[
 reset_swap($swapDb, $thu, 'lunch');
 check('reset of a chain restores all linked slots', $meals()['2026-01-19']['lunch'] === 'A'
     && $meals()['2026-01-21']['lunch'] === 'B' && $meals()['2026-01-22']['lunch'] === 'C');
+exchange_meals($swapDb, [$mon, 'lunch', $a], [$wed, 'lunch', $b]);
+exchange_meals($swapDb, [$wed, 'lunch', $a], [$thu, 'lunch', $c]);
+check('reset warning names all other linked slots in time order', reset_warning(reset_slots($swapDb, $mon, 'lunch'), $mon, 'lunch')
+    === 'Setzt auch Mittwoch Mittag und Donnerstag Mittag zurück.');
+reset_swap($swapDb, $mon, 'lunch');
+check('reset of the first slot of a chain restores all linked slots', $meals()['2026-01-19']['lunch'] === 'A'
+    && $meals()['2026-01-21']['lunch'] === 'B' && $meals()['2026-01-22']['lunch'] === 'C');
+check('no reset warning for a slot without linked slots', reset_slots($swapDb, $mon, 'lunch') === []
+    && reset_warning([[$mon, 'lunch']], $mon, 'lunch') === null);
+move_meal($swapDb, [$mon, 'dinner'], [$thu, 'lunch', $c]);
+check('move: the meal replaces the note, the other slot is empty', $meals()['2026-01-19']['dinner'] === '*C'
+    && $meals()['2026-01-22']['lunch'] === '*-');
+check('move: marked as moved, the other slot names where to',
+    slot_html($entries(), $mon, 'dinner') === '<p class="meal-name">C <small class="swapped">verschoben</small></p>'
+    && slot_html($entries(), $thu, 'lunch') === '<em class="moved">Verschoben auf Montag Abend</em>'
+    && reset_warning(reset_slots($swapDb, $thu, 'lunch'), $thu, 'lunch') === 'Setzt auch Montag Abend zurück.');
+save_swap($swapDb, $thu, 'lunch', $b, null);
+check('a new meal in the emptied slot keeps the moved meal marked',
+    str_contains(slot_html($entries(), $mon, 'dinner'), 'verschoben')
+    && str_contains(slot_html($entries(), $thu, 'lunch'), 'getauscht')
+    && reset_warning(reset_slots($swapDb, $mon, 'dinner'), $mon, 'dinner') === 'Setzt auch Donnerstag Mittag zurück.');
+reset_swap($swapDb, $mon, 'dinner');
+check('reset of a moved meal also restores the emptied slot, even after a new meal there',
+    $meals()['2026-01-19']['dinner'] === 'Eltern kochen' && $meals()['2026-01-22']['lunch'] === 'C');
+move_meal($swapDb, [$mon, 'dinner'], [$thu, 'lunch', $c]);
+save_swap($swapDb, $mon, 'dinner', $a, null);
+check('emptied slot without a destination once the moved meal is replaced',
+    slot_html($entries(), $thu, 'lunch') === '<em class="moved">Verschoben</em>');
+reset_swap($swapDb, $thu, 'lunch');
+check('reset of the emptied slot restores both', $meals()['2026-01-19']['dinner'] === 'Eltern kochen'
+    && $meals()['2026-01-22']['lunch'] === 'C');
 putenv('MENUPLAN_NOW=2026-01-21 13:59');
 check('lunch is not past before 14:00', !is_past($wed, 'lunch') && is_swappable($wed, 'lunch'));
 putenv('MENUPLAN_NOW=2026-01-21 14:00');
@@ -258,8 +288,12 @@ save_swap($swapDb, $mon, 'dinner', null, 'Grosseltern');
 check('skipped slot with a note shows the note', $meals()['2026-01-19']['dinner'] === '*Grosseltern'
     && slot_html($entries(), $mon, 'dinner') === '<em class="note">Grosseltern</em>');
 check('swap to an unknown meal is rejected', throws(fn() => save_swap($swapDb, $mon, 'dinner', 999, null), UserError::class));
-check('database rejects a skipped slot with a partner', throws(fn() => $swapDb->exec(
-    "INSERT INTO swap VALUES ('2026-01-20', 'lunch', NULL, NULL, '2026-01-21', 'lunch')"), PDOException::class));
+check('database rejects a note with a partner, and moved without a meal or partner', throws(fn() => $swapDb->exec(
+    "INSERT INTO swap VALUES ('2026-01-20', 'lunch', NULL, 'Notiz', '2026-01-21', 'lunch', 0)"), PDOException::class)
+    && throws(fn() => $swapDb->exec("INSERT INTO swap VALUES ('2026-01-20', 'lunch', NULL, NULL, '2026-01-21', 'lunch', 1)"),
+        PDOException::class)
+    && throws(fn() => $swapDb->exec("INSERT INTO swap VALUES ('2026-01-20', 'lunch', $a, NULL, NULL, NULL, 1)"),
+        PDOException::class));
 save_swap($swapDb, $wed, 'dinner', $e, null);
 check('meal swapped in from today on cannot be deleted',
     throws(fn() => delete_meal($swapDb, $e, $wed), UserError::class) && find_meal($swapDb, $e) !== null);
@@ -393,8 +427,9 @@ check('day view shows today in Woche 1', $day['status'] === 200
     && str_contains($day['body'], '<p class="relative-day">Heute</p>')
     && str_contains($day['body'], '<h1>' . weekday(today()) . '</h1>')
     && str_contains($day['body'], format_date(today()) . ' · Woche 1'));
-check('empty slots shown as not planned, with a link to the plan editor',
-    substr_count($day['body'], 'Nicht geplant') === 2 && str_contains($day['body'], 'href="/plan#slot-'));
+check('empty slots shown as not planned, with a link to the plan editor only after Friday',
+    substr_count($day['body'], '<span class="unplanned">Nicht geplant</span>') === 2 && !str_contains($day['body'], 'href="/plan#slot-')
+    && substr_count(request('GET', '/?date=' . add_days(today(), 7)->format('Y-m-d'))['body'], 'href="/plan#slot-') === 2);
 check('today button and current menu item swap on other days',
     !str_contains($day['body'], 'class="current">Heute</a>') && str_contains($day['body'], 'href="/" aria-current="page"')
     && str_contains($otherDay, 'class="current">Heute</a>') && !str_contains($otherDay, 'aria-current="page"'));
@@ -523,7 +558,7 @@ check('day view: meal slot can be changed or skipped, note slot only changed',
     substr_count($day, '<details class="slot-menu">') === 2 && str_contains($day, '<summary aria-label="Mittagessen ändern">')
     && !str_contains($day, ' past') && str_contains($day, 'href="' . e($swapUrl('/swap', 'lunch')) . '" class="swap">Anderes Gericht</a>')
     && str_contains($day, 'href="' . e($swapUrl('/swap/skip', 'lunch')) . '" class="skip">Auslassen</a>')
-    && str_contains($day, 'href="' . e($swapUrl('/swap', 'dinner')) . '" class="swap">Gericht wählen</a>')
+    && str_contains($day, 'href="' . e($swapUrl('/swap', 'dinner')) . '" class="swap">Gericht planen</a>')
     && !str_contains($day, e($swapUrl('/swap/skip', 'dinner'))) && !str_contains($day, 'Zurücksetzen'));
 $yesterday = add_days(today(), -1)->format('Y-m-d');
 $yesterdayView = request('GET', "/?date=$yesterday")['body'];
@@ -574,6 +609,27 @@ check('exchange with the same meal is rejected', redirects_to(request('POST', '/
 check('reset restores the plan of both slots', redirects_to(request('POST', '/swap/reset', $slotInput('dinner')), "/?date=$todayKey")
     && !str_contains($day = request('GET', '/')['body'], 'getauscht') && str_contains($day, 'Eltern kochen')
     && str_contains($day, '<p class="meal-name">Rösti</p>'));
+$swap = request('GET', $swapUrl('/swap', 'dinner'))['body'];
+check('swap page of a note slot: plan a meal by moving it here', str_contains($swap, '<h1>Gericht planen</h1>')
+    && str_contains($swap, '<h2>Gericht verschieben</h2>') && !str_contains($swap, 'Gericht tauschen')
+    && substr_count($swap, 'action="/swap/move"') === 1 && str_contains($swap, 'name="partner_meal_time" value="lunch"'));
+check('move a meal to the note slot', redirects_to(request('POST', '/swap/move', $slotInput('dinner')
+    + ['partner_date' => $todayKey, 'partner_meal_time' => 'lunch']), "/?date=$todayKey"));
+$day = request('GET', '/')['body'];
+$weekday = weekday(today());
+check('day view after the move: moved meal, emptied slot, reset warnings', str_contains($day, 'Verschoben.')
+    && (bool)preg_match('~Mittagessen.*<em class="moved">Verschoben auf ' . $weekday . ' Abend</em>.*Gericht planen.*'
+        . 'Setzt auch ' . $weekday . ' Abend zurück\..*Abendessen.*Rösti <small class="swapped">verschoben</small>.*'
+        . 'Setzt auch ' . $weekday . ' Mittag zurück\.~s', $day)
+    && !str_contains($day, 'Eltern kochen') && !str_contains($day, 'href="/plan#slot-'));
+check('move to a slot with a meal is rejected', redirects_to(request('POST', '/swap/move', $slotInput('dinner')
+    + ['partner_date' => $todayKey, 'partner_meal_time' => 'lunch']), $swapUrl('/swap', 'dinner'))
+    && str_contains(request('GET', $swapUrl('/swap', 'dinner'))['body'], 'Der Plan hat sich inzwischen geändert.'));
+check('move with an invalid partner is rejected', request('POST', '/swap/move', $slotInput('lunch')
+    + ['partner_date' => $todayKey, 'partner_meal_time' => 'brunch'])['status'] === 400);
+request('POST', '/swap/reset', $slotInput('lunch'));
+check('reset of the emptied slot restores both', !str_contains($day = request('GET', '/')['body'], 'verschoben')
+    && str_contains($day, 'Eltern kochen') && str_contains($day, '<p class="meal-name">Rösti</p>'));
 $skip = request('GET', $swapUrl('/swap/skip', 'lunch'));
 check('skip page shows the meal, the warning and a note field', $skip['status'] === 200
     && str_contains($skip['body'], 'Rösti') && str_contains($skip['body'], 'bleiben übrig') && str_contains($skip['body'], 'name="note"'));

@@ -9,14 +9,15 @@
 <?php foreach (MEAL_TIMES as $mealTime => $label): ?>
     <?php $entry = $entries[$date->format('Y-m-d')][$mealTime] ?>
     <?php $past = is_past($date, $mealTime) ?>
+    <?php $swappable = is_swappable($date, $mealTime) ?>
     <article class="meal-time <?= e($mealTime) ?><?= $past ? ' past' : '' ?>">
         <h2><?= e($label) ?><?php if ($past): ?><span class="visually-hidden"> (vorbei)</span><?php endif ?></h2>
-        <?= slot_html($entries, $date, $mealTime, true) ?>
-        <?php if (is_swappable($date, $mealTime)): ?>
+        <?= slot_html($entries, $date, $mealTime, true, !$swappable) ?>
+        <?php if ($swappable): ?>
             <details class="slot-menu">
                 <summary aria-label="<?= e($label) ?> ändern"></summary>
                 <div class="slot-actions">
-                    <a href="<?= e(swap_url('/swap', $date, $mealTime)) ?>" class="swap"><?= $entry['meal'] === null ? 'Gericht wählen' : 'Anderes Gericht' ?></a>
+                    <a href="<?= e(swap_url('/swap', $date, $mealTime)) ?>" class="swap"><?= $entry['meal'] === null ? 'Gericht planen' : 'Anderes Gericht' ?></a>
                     <?php if ($entry['meal'] !== null): ?>
                         <a href="<?= e(swap_url('/swap/skip', $date, $mealTime)) ?>" class="skip">Auslassen</a>
                     <?php endif ?>
@@ -27,6 +28,9 @@
                             <input type="hidden" name="meal_time" value="<?= e($mealTime) ?>">
                             <button type="submit" class="reset">Zurücksetzen</button>
                         </form>
+                        <?php if ($resetWarnings[$mealTime] !== null): ?>
+                            <p class="warning"><?= e($resetWarnings[$mealTime]) ?></p>
+                        <?php endif ?>
                     <?php endif ?>
                 </div>
             </details>

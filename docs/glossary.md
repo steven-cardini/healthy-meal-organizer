@@ -39,8 +39,9 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Summary tags        | –                  | `SUMMARY_TAGS`       | Tags shown in the day view and the meal list: protein source, prep time, kid suitability. | 2 |
 | Past                | vorbei             | `past`               | Meal time that is over: lunch from 14:00, dinner from the next day. | 3 |
 | Planning week       | –                  | `planning_week`      | Saturday to Friday. The groceries for it arrive on its Saturday (or Friday evening). | 3 |
-| Swap                | Anderes Gericht / getauscht | `swap`      | One-time change of a slot on a specific date: another meal, or skipped. A swapped meal is marked *getauscht*. | 3 |
-| Exchange            | Tauschen           | `exchange`           | Swap in which two slots of the planning week exchange their meals. | 3 |
+| Swap                | Anderes Gericht / Gericht planen / getauscht | `swap` | One-time change of a slot on a specific date: another meal, or skipped. A swapped meal is marked *getauscht*. *Gericht planen*: for a slot without a meal. | 3 |
+| Exchange            | Gericht tauschen   | `exchange`           | Swap in which two slots of the planning week exchange their meals. | 3 |
+| Move                | Gericht verschieben / verschoben | `move` | Swap that moves the meal of one slot of the planning week to a slot without a meal; the first slot is then empty. Marked *verschoben*. | 3 |
 | Skip                | Auslassen          | `skip`               | Swap that empties a slot on a date, with an optional note. | 3 |
 | Reset               | Zurücksetzen       | `reset`              | Remove a swap, so the plan slot applies again. | 3 |
 | Entry               | –                  | `entry`              | What a slot holds on a date: the swap if there is one, otherwise the plan slot. | 3 |

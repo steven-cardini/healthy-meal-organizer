@@ -50,8 +50,9 @@ config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 | GET      | `/plan`         | Plan editor                                     |
 | POST     | `/plan/slot`    | Save one slot                                   |
 | GET      | `/meals`        | Meal list                                       |
-| GET      | `/swap`         | *Anderes Gericht* for `?date=&meal_time=`; optional filters `?prep_time=&protein_source=` |
+| GET      | `/swap`         | *Anderes Gericht* / *Gericht planen* for `?date=&meal_time=`; optional filters `?prep_time=&protein_source=` |
 | POST     | `/swap/exchange`| Exchange the meals of two slots (`date`, `meal_time`, `partner_date`, `partner_meal_time`) |
+| POST     | `/swap/move`    | Move the meal of the partner slot to this slot without a meal (same fields) |
 | POST     | `/swap/meal`    | Put a meal from the meal list into the slot of a date |
 | GET/POST | `/swap/skip`    | *Auslassen* form / skip with an optional note |
 | POST     | `/swap/reset`   | *Zurücksetzen*                                  |
@@ -71,8 +72,9 @@ Each slot is a form with a choice *Gericht* / *Notiz* and one text field (sugges
 What is cooked on a date (`load_entries()`): the swap of that date if there is one, otherwise the plan slot. The day and week view, and the hints, use these entries.
 
 - Swappable: slots that are not past (`is_past()`) until Friday of the current planning week (`is_swappable()`); other slots redirect to the day view with a message.
-- An exchange writes two rows, each pointing to the other slot (`partner_date`, `partner_meal_time`). Any later swap of a slot overwrites its row and clears its partner.
-- *Zurücksetzen* deletes the row of the slot, then repeatedly every row in the same planning week whose partner is a deleted slot, except past slots (FR-19).
+- An exchange or a move writes two rows, each pointing to the other slot (`partner_date`, `partner_meal_time`). In a move, the target row has `moved` = 1 and the source row has no meal. Any later swap of a slot overwrites its row and clears its partner.
+- *Verschoben auf …* names the target only while the target row still points back (D-38).
+- *Zurücksetzen* deletes the rows of `reset_slots()`: the slot, then repeatedly every slot in the same planning week that points to a deleted slot or that a deleted slot points to, except past slots (FR-19).
 - Freshness: `fresh_until()` (`src/calendar.php`), warnings in `move_warning()` and `unused_warning()` (`src/app.php`).
 
 ## Meal form
@@ -86,13 +88,13 @@ Conceptual only. The SSOT is `db/schema.sql`.
 - **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13)
 - **plan_slot**: `cycle_day` (1–14), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
   - Primary key (`cycle_day`, `meal_time`). Exactly one of `meal_id` / `note` is set. No row means the slot is empty.
-- **swap**: `date` (`YYYY-MM-DD`), `meal_time`, `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note`, `partner_date`, `partner_meal_time`
-  - Primary key (`date`, `meal_time`). At most one of `meal_id` / `note`; neither means skipped. A partner (exchange) requires a meal.
+- **swap**: `date` (`YYYY-MM-DD`), `meal_time`, `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note`, `partner_date`, `partner_meal_time`, `moved` (0/1)
+  - Primary key (`date`, `meal_time`). At most one of `meal_id` / `note`; neither means skipped, or moved away if there is a partner. A partner (exchange, move) excludes a note. `moved`: the meal was moved here; requires a meal and a partner.
 - **login_failure**: `ip`, `failed_at` (for login throttling)
 
 Meal names and notes are trimmed, and runs of whitespace are collapsed to one space. The meal list is sorted with accented letters treated like their base letter (`ä` like `a`).
 
-Schema version: `PRAGMA user_version` (currently 1; the meal tags and the `swap` table were added to version 1 before any production data existed, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
+Schema version: `PRAGMA user_version` (currently 1; the meal tags, the `swap` table and its `moved` column were added to version 1 while production held only test data, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
 
 ## Cycle calculation
 

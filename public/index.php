@@ -28,6 +28,7 @@ const ROUTES = [
     'POST /plan/slot' => 'save_slot_action',
     'GET /swap' => 'swap_page',
     'POST /swap/exchange' => 'swap_exchange_action',
+    'POST /swap/move' => 'swap_move_action',
     'POST /swap/meal' => 'swap_meal_action',
     'GET /swap/skip' => 'skip_page',
     'POST /swap/skip' => 'skip_action',

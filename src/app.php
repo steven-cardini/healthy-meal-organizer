@@ -11,6 +11,8 @@ const ROOT_DIR = __DIR__ . '/..';
 const SESSION_LIFETIME = 180 * 86400;
 const MAX_TEXT_LENGTH = 100;
 const MEAL_TIMES = ['lunch' => 'Mittagessen', 'dinner' => 'Abendessen'];
+/** For slot names like "Dienstag Mittag" (slot_name()). */
+const MEAL_TIMES_SHORT = ['lunch' => 'Mittag', 'dinner' => 'Abend'];
 
 // Same values as the CHECK constraints in db/schema.sql. Meaning: docs/requirements.md#meal-tags.
 const MEAL_TAGS = [
@@ -198,19 +200,24 @@ function asset_url(string $path): string
  * HTML for a slot as shown in the day and week view. $entries: see load_entries(), including the day before and after.
  * $withTags: day view, adds the protein avatar and SUMMARY_TAGS (docs/decisions.md D-25).
  */
-function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bool $withTags = false): string
+/** $planLink: an empty slot links to the plan editor (not where the ⋯ menu offers "Gericht planen", FR-17). */
+function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bool $withTags = false,
+    bool $planLink = true): string
 {
     $entry = $entries[$date->format('Y-m-d')][$mealTime];
     if ($entry['meal'] === null) {
         return match (true) {
             $entry['note'] !== null => '<em class="note">' . e($entry['note']) . '</em>',
+            $entry['moved_away'] => '<em class="moved">Verschoben'
+                . ($entry['moved_to'] === null ? '' : ' auf ' . e(slot_name(...$entry['moved_to']))) . '</em>',
             $entry['swapped'] => '<em class="skipped">Ausgelassen</em>',
+            !$planLink => '<span class="unplanned">Nicht geplant</span>',
             default => '<a href="/plan#' . e("slot-{$entry['cycle_day']}-$mealTime")
                 . '" class="unplanned">Nicht geplant <span>+ Planen</span></a>',
         };
     }
-    $name = '<p class="meal-name">' . e($entry['meal'])
-        . ($entry['swapped'] ? ' <small class="swapped">getauscht</small>' : '') . '</p>';
+    $name = '<p class="meal-name">' . e($entry['meal']) . ($entry['swapped']
+        ? ' <small class="swapped">' . ($entry['moved'] ? 'verschoben' : 'getauscht') . '</small>' : '') . '</p>';
     $hints = '';
     foreach (slot_hints($entries, $date, $mealTime) as $kind => $label) {
         $hints .= '<li class="hint-' . e($kind) . '">' . e($label) . '</li>';
@@ -283,6 +290,25 @@ function unused_warning(array $entry): ?string
     return $entry['meal'] !== null && isset(SHELF_LIFE_DAYS[$entry['shelf_life']])
         ? "Die Zutaten für {$entry['meal']} bleiben übrig und halten nur wenige Tage."
         : null;
+}
+
+/** e.g. "Dienstag Mittag" */
+function slot_name(DateTimeImmutable $date, string $mealTime): string
+{
+    return weekday($date) . ' ' . MEAL_TIMES_SHORT[$mealTime];
+}
+
+/** Warning at *Zurücksetzen* if it also restores other slots (FR-19). $slots: reset_slots(), including this slot. */
+function reset_warning(array $slots, DateTimeImmutable $date, string $mealTime): ?string
+{
+    $names = [];
+    foreach ($slots as [$slotDate, $slotMealTime]) {
+        if ($slotDate != $date || $slotMealTime !== $mealTime) {
+            $names[] = slot_name($slotDate, $slotMealTime);
+        }
+    }
+    $last = array_pop($names);
+    return $last === null ? null : 'Setzt auch ' . ($names === [] ? '' : implode(', ', $names) . ' und ') . $last . ' zurück.';
 }
 
 function flash_html(?array $flash): string
