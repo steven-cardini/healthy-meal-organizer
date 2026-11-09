@@ -1,18 +1,12 @@
 <?php
 declare(strict_types=1);
 
-if ($slot !== null) {
-    [$cycleDay, $mealTime] = $slot;
-    $cancel = "/plan#slot-$cycleDay-$mealTime";
-} else {
-    $cancel = $id === null ? '/meals' : "/meals#meal-$id";
-}
+$cancel = $target['cancel'] ?? ($id === null ? '/meals' : "/meals#meal-$id");
 ?>
 <hgroup>
     <h1><?= $id === null ? 'Neues Gericht' : 'Gericht bearbeiten' ?></h1>
-    <?php if ($slot !== null): ?>
-        <p>Noch nicht in der Liste. Nach dem Speichern wird es eingetragen:
-            <?= e(WEEKDAYS[($cycleDay - 1) % 7 + 1] . ' (Woche ' . cycle_week($cycleDay) . '), ' . MEAL_TIMES[$mealTime]) ?>.</p>
+    <?php if ($target !== null): ?>
+        <p><?= e($target['text']) ?></p>
     <?php elseif ($id !== null): ?>
         <p><?= $uses === 0 ? 'Nicht im Plan' : e($uses) . '× im Plan' ?></p>
     <?php else: ?>
@@ -25,10 +19,9 @@ if ($slot !== null) {
     <?php if ($id !== null): ?>
         <input type="hidden" name="id" value="<?= e($id) ?>">
     <?php endif ?>
-    <?php if ($slot !== null): ?>
-        <input type="hidden" name="cycle_day" value="<?= e($cycleDay) ?>">
-        <input type="hidden" name="meal_time" value="<?= e($mealTime) ?>">
-    <?php endif ?>
+    <?php foreach ($target['fields'] ?? [] as $field => $value): ?>
+        <input type="hidden" name="<?= e($field) ?>" value="<?= e($value) ?>">
+    <?php endforeach ?>
     <label>
         Name
         <input type="text" name="name" value="<?= e($meal['name']) ?>" maxlength="<?= MAX_TEXT_LENGTH ?>" required

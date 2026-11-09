@@ -12,20 +12,71 @@ function meal_name_key(string $name): string
     return mb_strtolower($name);
 }
 
-/**
- * @return array<int, array<string, array{meal: ?string, note: ?string, meal_id: ?int, protein_source: ?string,
- *     prep_time: ?string, child_factor: ?string, vegetable_level: ?string, leftovers: ?string}>> [cycle_day][meal_time]
- */
+/** Columns of an entry: what a slot holds. The tags are null if there is no meal. */
+const ENTRY_COLUMNS = 's.meal_id, s.note, m.name AS meal, m.protein_source, m.prep_time, m.child_factor,
+    m.shelf_life, m.leftovers, m.vegetable_level';
+const EMPTY_ENTRY = ['meal_id' => null, 'note' => null, 'meal' => null];
+
+/** @return array<int, array<string, array{meal_id: ?int, note: ?string, meal: ?string, ...}>> [cycle_day][meal_time] */
 function load_plan(PDO $db): array
 {
     $plan = [];
-    $rows = $db->query('SELECT s.cycle_day, s.meal_time, m.name AS meal, s.note, s.meal_id,
-            m.protein_source, m.prep_time, m.child_factor, m.vegetable_level, m.leftovers
-        FROM plan_slot s LEFT JOIN meal m ON m.id = s.meal_id');
+    $rows = $db->query('SELECT s.cycle_day, s.meal_time, ' . ENTRY_COLUMNS
+        . ' FROM plan_slot s LEFT JOIN meal m ON m.id = s.meal_id');
     foreach ($rows as $row) {
         $plan[$row['cycle_day']][$row['meal_time']] = array_diff_key($row, ['cycle_day' => 0, 'meal_time' => 0]);
     }
     return $plan;
+}
+
+/**
+ * What is cooked from $from to $to: the swap of a date if there is one, otherwise the plan slot.
+ * @return array<string, array<string, array{cycle_day: int, swapped: bool, meal_id: ?int, note: ?string, meal: ?string, ...}>>
+ *     [Y-m-d][meal_time]
+ */
+function load_entries(PDO $db, DateTimeImmutable $from, DateTimeImmutable $to, DateTimeImmutable $cycleStart): array
+{
+    $stmt = $db->prepare('SELECT s.date, s.meal_time, ' . ENTRY_COLUMNS
+        . ' FROM swap s LEFT JOIN meal m ON m.id = s.meal_id WHERE s.date BETWEEN ? AND ?');
+    $stmt->execute([$from->format('Y-m-d'), $to->format('Y-m-d')]);
+    $swaps = [];
+    foreach ($stmt as $row) {
+        $swaps[$row['date']][$row['meal_time']] = array_diff_key($row, ['date' => 0, 'meal_time' => 0]);
+    }
+    $plan = load_plan($db);
+    $entries = [];
+    for ($date = $from; $date <= $to; $date = add_days($date, 1)) {
+        $key = $date->format('Y-m-d');
+        $cycleDay = cycle_day($date, $cycleStart);
+        foreach (array_keys(MEAL_TIMES) as $mealTime) {
+            $swap = $swaps[$key][$mealTime] ?? null;
+            $entries[$key][$mealTime] = ['cycle_day' => $cycleDay, 'swapped' => $swap !== null]
+                + ($swap ?? $plan[$cycleDay][$mealTime] ?? EMPTY_ENTRY);
+        }
+    }
+    return $entries;
+}
+
+/**
+ * Sets the slot of a date to a meal, a note, or neither (skipped).
+ * @param ?array{DateTimeImmutable, string} $partner [date, meal_time] of the other slot of an exchange
+ */
+function save_swap(PDO $db, DateTimeImmutable $date, string $mealTime, ?int $mealId, ?string $note,
+    ?array $partner = null): void
+{
+    try {
+        $db->prepare('INSERT INTO swap (date, meal_time, meal_id, note, partner_date, partner_meal_time)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (date, meal_time) DO UPDATE SET meal_id = excluded.meal_id, note = excluded.note,
+                partner_date = excluded.partner_date, partner_meal_time = excluded.partner_meal_time')
+            ->execute([$date->format('Y-m-d'), $mealTime, $mealId, $note,
+                $partner === null ? null : $partner[0]->format('Y-m-d'), $partner[1] ?? null]);
+    } catch (PDOException $e) {
+        if ($e->getCode() === SQLSTATE_CONSTRAINT) {
+            throw new UserError('Dieses Gericht gibt es nicht mehr.');
+        }
+        throw $e;
+    }
 }
 
 /** Exactly one of $mealId / $note, or neither to empty the slot. */
@@ -38,6 +89,53 @@ function save_slot(PDO $db, int $cycleDay, string $mealTime, ?int $mealId, ?stri
     $db->prepare('INSERT INTO plan_slot (cycle_day, meal_time, meal_id, note) VALUES (?, ?, ?, ?)
         ON CONFLICT (cycle_day, meal_time) DO UPDATE SET meal_id = excluded.meal_id, note = excluded.note')
         ->execute([$cycleDay, $mealTime, $mealId, $note]);
+}
+
+/** Exchanges the meals of two slots. $a, $b: [date, meal_time, meal_id]. */
+function exchange_meals(PDO $db, array $a, array $b): void
+{
+    in_transaction($db, function () use ($db, $a, $b): void {
+        save_swap($db, $a[0], $a[1], $b[2], null, [$b[0], $b[1]]);
+        save_swap($db, $b[0], $b[1], $a[2], null, [$a[0], $a[1]]);
+    });
+}
+
+/** Restores the plan for a slot and for every slot that still holds the result of an exchange with a restored slot. */
+function reset_swap(PDO $db, DateTimeImmutable $date, string $mealTime): void
+{
+    in_transaction($db, function () use ($db, $date, $mealTime): void {
+        // Exchanges stay within one planning week.
+        $start = planning_week_start($date);
+        $stmt = $db->prepare('SELECT date, meal_time, partner_date, partner_meal_time FROM swap
+            WHERE partner_date IS NOT NULL AND date BETWEEN ? AND ?');
+        $stmt->execute([$start->format('Y-m-d'), add_days($start, 6)->format('Y-m-d')]);
+        $exchanged = $stmt->fetchAll();
+        $reset = [$date->format('Y-m-d') . " $mealTime" => true];
+        do {
+            $count = count($reset);
+            foreach ($exchanged as $row) {
+                if (isset($reset["$row[partner_date] $row[partner_meal_time]"])) {
+                    $reset["$row[date] $row[meal_time]"] = true;
+                }
+            }
+        } while (count($reset) > $count);
+        $delete = $db->prepare('DELETE FROM swap WHERE date = ? AND meal_time = ?');
+        foreach (array_keys($reset) as $slot) {
+            $delete->execute(explode(' ', $slot));
+        }
+    });
+}
+
+function in_transaction(PDO $db, callable $fn): void
+{
+    $db->beginTransaction();
+    try {
+        $fn();
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();
+        throw $e;
+    }
 }
 
 function find_meal_id(PDO $db, string $name): ?int
@@ -123,16 +221,25 @@ function sort_key(string $name): string
     ]);
 }
 
-function delete_meal(PDO $db, int $id): void
+/** Also deletes the meal's swaps before $today; swaps from $today on block the deletion. */
+function delete_meal(PDO $db, int $id, DateTimeImmutable $today): void
 {
-    try {
-        $db->prepare('DELETE FROM meal WHERE id = ?')->execute([$id]);
-    } catch (PDOException $e) {
-        if ($e->getCode() === SQLSTATE_CONSTRAINT) {
-            throw new UserError('Das Gericht ist im Plan eingetragen und kann nicht gelöscht werden.');
+    in_transaction($db, function () use ($db, $id, $today): void {
+        $stmt = $db->prepare('SELECT COUNT(*) FROM swap WHERE meal_id = ? AND date >= ?');
+        $stmt->execute([$id, $today->format('Y-m-d')]);
+        if ((int)$stmt->fetchColumn() > 0) {
+            throw new UserError('Das Gericht ist diese Woche eingetauscht und kann erst danach gelöscht werden.');
         }
-        throw $e;
-    }
+        $db->prepare('DELETE FROM swap WHERE meal_id = ?')->execute([$id]);
+        try {
+            $db->prepare('DELETE FROM meal WHERE id = ?')->execute([$id]);
+        } catch (PDOException $e) {
+            if ($e->getCode() === SQLSTATE_CONSTRAINT) {
+                throw new UserError('Das Gericht ist im Plan eingetragen und kann nicht gelöscht werden.');
+            }
+            throw $e;
+        }
+    });
 }
 
 function login_blocked(PDO $db, string $ip, int $now): bool

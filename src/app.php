@@ -43,6 +43,9 @@ const MEAL_TAGS = [
 /** Tags shown in the day view and the meal list (docs/decisions.md D-25). */
 const SUMMARY_TAGS = ['protein_source', 'prep_time', 'child_factor'];
 
+/** Filters of the meal list in "Anderes Gericht" (FR-17). */
+const FILTER_TAGS = ['prep_time', 'protein_source'];
+
 /** Invalid user input; the message is shown in the UI. */
 final class UserError extends RuntimeException
 {
@@ -192,28 +195,31 @@ function asset_url(string $path): string
 }
 
 /**
- * HTML for a slot as shown in the day and week view. $plan: see load_plan().
+ * HTML for a slot as shown in the day and week view. $entries: see load_entries(), including the day before and after.
  * $withTags: day view, adds the protein avatar and SUMMARY_TAGS (docs/decisions.md D-25).
  */
-function slot_html(array $plan, int $cycleDay, string $mealTime, bool $withTags = false): string
+function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bool $withTags = false): string
 {
-    $slot = $plan[$cycleDay][$mealTime] ?? null;
-    if ($slot === null) {
-        return '<a href="/plan#' . e("slot-$cycleDay-$mealTime") . '" class="unplanned">Nicht geplant <span>+ Planen</span></a>';
+    $entry = $entries[$date->format('Y-m-d')][$mealTime];
+    if ($entry['meal'] === null) {
+        return match (true) {
+            $entry['note'] !== null => '<em class="note">' . e($entry['note']) . '</em>',
+            $entry['swapped'] => '<em class="skipped">Ausgelassen</em>',
+            default => '<a href="/plan#' . e("slot-{$entry['cycle_day']}-$mealTime")
+                . '" class="unplanned">Nicht geplant <span>+ Planen</span></a>',
+        };
     }
-    if ($slot['meal'] === null) {
-        return '<em class="note">' . e($slot['note']) . '</em>';
-    }
-    $name = '<p class="meal-name">' . e($slot['meal']) . '</p>';
+    $name = '<p class="meal-name">' . e($entry['meal'])
+        . ($entry['swapped'] ? ' <small class="swapped">getauscht</small>' : '') . '</p>';
     $hints = '';
-    foreach (slot_hints($plan, $cycleDay, $mealTime) as $kind => $label) {
+    foreach (slot_hints($entries, $date, $mealTime) as $kind => $label) {
         $hints .= '<li class="hint-' . e($kind) . '">' . e($label) . '</li>';
     }
     $hints = $hints === '' ? '' : '<ul class="hints" aria-label="Hinweise">' . $hints . '</ul>';
     if (!$withTags) {
         return $name . $hints;
     }
-    return '<div class="meal">' . avatar_html($slot['protein_source']) . '<div>' . $name . tags_html($slot) . '</div>'
+    return '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name . tags_html($entry) . '</div>'
         . $hints . '</div>';
 }
 
@@ -239,27 +245,44 @@ function tag_class(string $tag, string $value): string
     return "tag-$tag-$value";
 }
 
-/** @return array<string, string> kind => label, see docs/requirements.md#meal-tags (FR-14) */
-function slot_hints(array $plan, int $cycleDay, string $mealTime): array
+/** @return array<string, string> kind => label, see docs/requirements.md#meal-tags (FR-14). $entries: see slot_html(). */
+function slot_hints(array $entries, DateTimeImmutable $date, string $mealTime): array
 {
-    $slot = $plan[$cycleDay][$mealTime];
-    $sameMealIn = fn(array $neighbour): bool => $slot['leftovers'] === 'reheats_well'
-        && ($plan[$neighbour[0]][$neighbour[1]]['meal_id'] ?? null) === $slot['meal_id'];
-    $previous = previous_slot($cycleDay, $mealTime);
+    $entry = $entries[$date->format('Y-m-d')][$mealTime];
+    $sameMealIn = fn(array $neighbour): bool => $entry['leftovers'] === 'reheats_well'
+        && ($entries[$neighbour[0]->format('Y-m-d')][$neighbour[1]]['meal_id'] ?? null) === $entry['meal_id'];
+    $previous = previous_slot($date, $mealTime);
     if ($sameMealIn($previous)) {
         return ['leftovers' => $previous[1] === 'lunch' ? 'Reste vom Mittagessen' : 'Reste vom Vorabend'];
     }
-    $next = next_slot($cycleDay, $mealTime);
+    $next = next_slot($date, $mealTime);
     $hints = $sameMealIn($next)
         ? ['cook_double' => 'Doppelte Menge für ' . ($next[1] === 'dinner' ? 'den Abend' : 'morgen Mittag')]
         : [];
-    if ($slot['prep_time'] === 'slow') {
+    if ($entry['prep_time'] === 'slow') {
         $hints['slow'] = 'Lange Zubereitung';
     }
-    if ($slot['vegetable_level'] !== 'main_component') {
-        $hints[$slot['vegetable_level']] = MEAL_TAGS['vegetable_level']['values'][$slot['vegetable_level']];
+    if ($entry['vegetable_level'] !== 'main_component') {
+        $hints[$entry['vegetable_level']] = MEAL_TAGS['vegetable_level']['values'][$entry['vegetable_level']];
     }
     return $hints;
+}
+
+/** Freshness warning if the meal of $entry moves from $from to a later date after its ingredients keep (FR-20). */
+function move_warning(array $entry, DateTimeImmutable $from, DateTimeImmutable $to): ?string
+{
+    $until = fresh_until($entry['shelf_life'], planning_week_start($from));
+    return $to > $from && $until !== null && $to > $until
+        ? "Die Zutaten für {$entry['meal']} halten evtl. nicht bis " . weekday($to) . '.'
+        : null;
+}
+
+/** Freshness warning if the meal of $entry is skipped or replaced although its ingredients keep only a few days (FR-20). */
+function unused_warning(array $entry): ?string
+{
+    return $entry['meal'] !== null && isset(SHELF_LIFE_DAYS[$entry['shelf_life']])
+        ? "Die Zutaten für {$entry['meal']} bleiben übrig und halten nur wenige Tage."
+        : null;
 }
 
 function flash_html(?array $flash): string

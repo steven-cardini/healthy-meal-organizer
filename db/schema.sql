@@ -28,6 +28,23 @@ CREATE TABLE plan_slot (
 
 CREATE INDEX plan_slot_meal_id ON plan_slot (meal_id);
 
+-- One-time change of a date's slot, see docs/architecture.md#swap. Neither meal_id nor note: skipped.
+-- partner_*: the other slot of an exchange.
+CREATE TABLE swap (
+    date              TEXT NOT NULL CHECK (date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    meal_time         TEXT NOT NULL CHECK (meal_time IN ('lunch', 'dinner')),
+    meal_id           INTEGER REFERENCES meal (id) ON DELETE RESTRICT,
+    note              TEXT CHECK (length(note) BETWEEN 1 AND 100),
+    partner_date      TEXT,
+    partner_meal_time TEXT CHECK (partner_meal_time IN ('lunch', 'dinner')),
+    PRIMARY KEY (date, meal_time),
+    CHECK (meal_id IS NULL OR note IS NULL),
+    CHECK ((partner_date IS NULL) = (partner_meal_time IS NULL)),
+    CHECK (partner_date IS NULL OR meal_id IS NOT NULL)
+);
+
+CREATE INDEX swap_meal_id ON swap (meal_id);
+
 CREATE TABLE login_failure (
     ip        TEXT    NOT NULL,
     failed_at INTEGER NOT NULL

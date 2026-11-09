@@ -37,11 +37,17 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Vegetable level     | Gemüse             | `vegetable_level`    | Whether a meal contains enough vegetables. | 2 |
 | Hint                | –                  | `slot_hints`         | Short note below a meal in the day and week view, e.g. "Rohkost dazu". | 2 |
 | Summary tags        | –                  | `SUMMARY_TAGS`       | Tags shown in the day view and the meal list: protein source, prep time, kid suitability. | 2 |
-| Swap                | Tauschen           | `swap`               | One-time replacement of the planned meal on a specific date. | 4 |
-| Recipe              | Rezept             | `recipe`             | Ingredients and preparation steps of a meal. | 4 |
-| Ingredient          | Zutat              | `ingredient`         | Food item with quantity and unit in a recipe. | 4 |
-| Servings            | Portionen          | `servings`           | Number of portions a recipe yields. | 4 |
-| Shopping list       | Einkaufsliste      | `shopping_list`      | Ingredients needed for a period of the plan, combined. | 4 |
-| Health balance      | Ausgewogenheit     | `health_balance`     | How well meals match dietary recommendations. | 5 |
-| Food pyramid        | Lebensmittelpyramide | `food_pyramid`     | Swiss dietary recommendation (SGE); in Germany often called "Ernährungspyramide". | 5 |
-| Food group          | Lebensmittelgruppe | `food_group`         | Category of the food pyramid, e.g. vegetables, protein. | 5 |
+| Planning week       | –                  | `planning_week`      | Saturday to Friday. The groceries for it arrive on its Saturday (or Friday evening). | 3 |
+| Swap                | Anderes Gericht / getauscht | `swap`      | One-time change of a slot on a specific date: another meal, or skipped. A swapped meal is marked *getauscht*. | 3 |
+| Exchange            | Tauschen           | `exchange`           | Swap in which two slots of the planning week exchange their meals. | 3 |
+| Skip                | Auslassen          | `skip`               | Swap that empties a slot on a date, with an optional note. | 3 |
+| Reset               | Zurücksetzen       | `reset`              | Remove a swap, so the plan slot applies again. | 3 |
+| Entry               | –                  | `entry`              | What a slot holds on a date: the swap if there is one, otherwise the plan slot. | 3 |
+| Week planning       | –                  | –                    | Changing or skipping meals for the coming planning week only. | 4 |
+| Recipe              | Rezept             | `recipe`             | Ingredients and preparation steps of a meal. | 5 |
+| Ingredient          | Zutat              | `ingredient`         | Food item with quantity and unit in a recipe. | 5 |
+| Servings            | Portionen          | `servings`           | Number of portions a recipe yields. | 5 |
+| Shopping list       | Einkaufsliste      | `shopping_list`      | Ingredients needed for a period of the plan, combined. | 5 |
+| Health balance      | Ausgewogenheit     | `health_balance`     | How well meals match dietary recommendations. | 6 |
+| Food pyramid        | Lebensmittelpyramide | `food_pyramid`     | Swiss dietary recommendation (SGE); in Germany often called "Ernährungspyramide". | 6 |
+| Food group          | Lebensmittelgruppe | `food_group`         | Category of the food pyramid, e.g. vegetables, protein. | 6 |

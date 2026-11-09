@@ -50,16 +50,30 @@ config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 | GET      | `/plan`         | Plan editor                                     |
 | POST     | `/plan/slot`    | Save one slot                                   |
 | GET      | `/meals`        | Meal list                                       |
-| GET/POST | `/meals/new`    | New meal form / create; optional `?name=` and `?cycle_day=&meal_time=` (slot to fill after saving) |
+| GET      | `/swap`         | *Anderes Gericht* for `?date=&meal_time=`; optional filters `?prep_time=&protein_source=` |
+| POST     | `/swap/exchange`| Exchange the meals of two slots (`date`, `meal_time`, `partner_date`, `partner_meal_time`) |
+| POST     | `/swap/meal`    | Put a meal from the meal list into the slot of a date |
+| GET/POST | `/swap/skip`    | *Auslassen* form / skip with an optional note |
+| POST     | `/swap/reset`   | *Zurücksetzen*                                  |
+| GET/POST | `/meals/new`    | New meal form / create; optional `?name=`, and the slot to fill after saving: `?cycle_day=&meal_time=` (plan) or `?date=&meal_time=` (swap) |
 | GET/POST | `/meals/edit`   | Edit form (`?id=`) / save name and tags         |
 | POST     | `/meals/delete` | Delete an unused meal                           |
 | GET/POST | `/login`        | Login form / login                              |
 
-Every route except `/login` requires a session. Every POST checks the CSRF token and redirects afterwards (Post/Redirect/Get). Messages after a POST ("Gespeichert.", errors) are shown once, next to the edited slot or meal. Exception: an error in the meal form shows the form again with the entered values and status 422 (D-22).
+Every route except `/login` requires a session. Every POST checks the CSRF token and redirects afterwards (Post/Redirect/Get). Messages after a POST ("Gespeichert.", errors) are shown once, next to the edited slot or meal (swaps: at the top of the day view). Exception: an error in the meal form shows the form again with the entered values and status 422 (D-22).
 
 ## Plan editor
 
 Each slot is a form with a choice *Gericht* / *Notiz* and one text field (suggestions from the meal list via `<datalist>`). An empty text field empties the slot. A meal name not yet in the meal list redirects to `/meals/new` with the name and the slot; saving that form creates the meal, fills the slot and returns to the plan.
+
+## Swap
+
+What is cooked on a date (`load_entries()`): the swap of that date if there is one, otherwise the plan slot. The day and week view, and the hints, use these entries.
+
+- Swappable: from today until Friday of the current planning week (`is_swappable()`); other dates redirect to the day view with a message.
+- An exchange writes two rows, each pointing to the other slot (`partner_date`, `partner_meal_time`). Any later swap of a slot overwrites its row and clears its partner.
+- *Zurücksetzen* deletes the row of the slot, then repeatedly every row in the same planning week whose partner is a deleted slot (FR-19).
+- Freshness: `fresh_until()` (`src/calendar.php`), warnings in `move_warning()` and `unused_warning()` (`src/app.php`).
 
 ## Meal form
 
@@ -72,11 +86,13 @@ Conceptual only. The SSOT is `db/schema.sql`.
 - **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13)
 - **plan_slot**: `cycle_day` (1–14), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
   - Primary key (`cycle_day`, `meal_time`). Exactly one of `meal_id` / `note` is set. No row means the slot is empty.
+- **swap**: `date` (`YYYY-MM-DD`), `meal_time`, `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note`, `partner_date`, `partner_meal_time`
+  - Primary key (`date`, `meal_time`). At most one of `meal_id` / `note`; neither means skipped. A partner (exchange) requires a meal.
 - **login_failure**: `ip`, `failed_at` (for login throttling)
 
 Meal names and notes are trimmed, and runs of whitespace are collapsed to one space. The meal list is sorted with accented letters treated like their base letter (`ä` like `a`).
 
-Schema version: `PRAGMA user_version` (currently 1; the meal tags were added to version 1 before any production data existed, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
+Schema version: `PRAGMA user_version` (currently 1; the meal tags and the `swap` table were added to version 1 before any production data existed, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
 
 ## Cycle calculation
 
@@ -88,6 +104,8 @@ cycle_week = cycle_day <= 7 ? 1 : 2
 ```
 
 Because the start date is a Monday, every calendar week maps to exactly one cycle week. Dates before the start date also work (`floor_mod`). "Today" is taken in `Europe/Zurich`; day arithmetic uses plain calendar dates, so DST changes have no effect.
+
+The planning week of a date starts on the Saturday on or before it (`planning_week_start()`) and ends on Friday.
 
 ## Authentication
 
@@ -118,7 +136,7 @@ No inline scripts or styles. PHP errors are logged, never displayed (except on t
 
 Not implemented yet. Recorded so that the design leaves room for them.
 
-- **Cycle length (phase 3):** `CYCLE_DAYS` and `cycle_week()` (`src/calendar.php`) and the `CHECK` on `plan_slot.cycle_day` assume 14 days.
-- **Swap (phase 4):** a table with one-time replacements keyed by (`date`, `meal_time`), holding a `meal_id` or a `note`. The effective entry for a date is the swap if one exists, otherwise the plan slot.
-- **Recipes, shopping list (phase 4):** recipes with ingredients, linked to `meal`. The `prep_time` tag can be used to suggest quicker meals when swapping.
-- **Health balance (phase 5):** based on the meal tags (FR-13).
+- **Week planning (phase 4):** can reuse the `swap` table for the dates of the coming planning week; `is_swappable()` limits swaps to the current one.
+- **Recipes, shopping list (phase 5):** recipes with ingredients, linked to `meal`.
+- **Health balance (phase 6):** based on the meal tags (FR-13) and the entries of past dates (plan and kept swaps).
+- **Cycle length (later):** `CYCLE_DAYS` and `cycle_week()` (`src/calendar.php`) and the `CHECK` on `plan_slot.cycle_day` assume 14 days.

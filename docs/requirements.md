@@ -16,12 +16,13 @@ One household. All members share one password and have the same rights (view and
 |---------|-------------------------------------------------------------------------------------------|
 | 1 (MVP) | Repeating meal plan, day view, week view, plan editor, meal list, login, PWA              |
 | 2       | Meal tags (protein source, prep time, leftovers, …) and hints in the day and week view    |
-| 3       | Flexible cycle length: more cycle weeks (e.g. Woche 3 and 4). Minimum and maximum still open |
-| 4       | Swap a planned meal on a specific date (e.g. for a quicker one), recipes, shopping list   |
-| 5       | Health balance based on scientific recommendations (e.g. Swiss food pyramid), using the meal tags |
-| Later   | Nice to have, low priority: while swiping, the previous / next day or week is already shown next to the content (loaded in the background), so the switch needs no wait |
+| 3       | Swap on the spot: change or skip a meal on a date of the current planning week            |
+| 4       | Week planning: change or skip meals for the coming planning week only                     |
+| 5       | Recipes, shopping list                                                                    |
+| 6       | Health balance based on scientific recommendations (e.g. Swiss food pyramid), using the meal tags |
+| Later   | Nice to have, low priority: (a) while swiping, the previous / next day or week is already shown next to the content (loaded in the background), so the switch needs no wait; (b) flexible cycle length: more cycle weeks (e.g. Woche 3 and 4), minimum and maximum still open; (c) when skipping a meal whose ingredients keep only briefly, suggest moving it to a later slot whose meal keeps longer and skipping that one instead |
 
-Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [architecture.md](architecture.md#extension-points)).
+Phases 4 to 6 and "Later" are not specified yet. Earlier phases must not block them (see [architecture.md](architecture.md#extension-points)).
 
 ## Functional requirements (MVP)
 
@@ -66,11 +67,32 @@ Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [ar
 | `vegetable_level` | Gemüse | `main_component`: Genug enthalten, `side_dish`: Gemüsebeilage kochen, `raw_veggies_needed`: Rohkost dazu | Whether the meal contains enough vegetables, and if not, what to add |
 
 - **FR-14** The day and week view show hints below a meal, each with an icon and text:
-  - *Doppelte Menge für den Abend* / *für morgen Mittag*: the meal is `reheats_well` and the same meal is planned in the next slot (lunch → dinner, dinner → next day's lunch; day 14 is followed by day 1).
+  - *Doppelte Menge für den Abend* / *für morgen Mittag*: the meal is `reheats_well` and the same meal is planned in the next slot (lunch → dinner, dinner → next day's lunch). Slots are compared by date, including swaps (FR-16).
   - *Reste vom Mittagessen* / *vom Vorabend*: the same `reheats_well` meal is planned in the slot before. Then no other hint is shown.
   - *Lange Zubereitung*: `prep_time` is `slow`.
   - *Gemüsebeilage kochen* / *Rohkost dazu*: `vegetable_level` is `side_dish` / `raw_veggies_needed`.
 - **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list shows the same three tags.
+
+## Functional requirements (phase 3)
+
+### Swap
+
+Use cases: "I would rather eat X today", "ingredient Y was discounted", "ingredient Z for today's meal is used up". The groceries for a **planning week** (Saturday to Friday) arrive on its Saturday (or Friday evening).
+
+- **FR-16** A swap changes the slot of one date only; the plan stays as it is. The day view and the week view show what is cooked on a date: the swap if there is one, otherwise the plan slot. A swapped meal is marked *getauscht*; a skipped slot shows its note, or *Ausgelassen*. Swaps are kept after their date.
+- **FR-17** In the day view, slots from today until Friday of the current planning week offer:
+  - *Anderes Gericht* (*Gericht wählen* if the slot has no meal):
+    - Exchange with a meal planned from today until Friday (*Tauschen bis Freitag*): the two slots exchange their meals. Only slots with a meal are offered, not those with the same meal. Not offered if the slot has no meal.
+    - Or a meal from the meal list (*Aus der Liste*), filtered by prep time and protein source, or a new meal (as in FR-8). Only this slot changes.
+  - *Auslassen*: only for a slot with a meal (FR-18).
+  - *Zurücksetzen*: only for a swapped slot (FR-19).
+  - An empty slot also keeps its link to the plan editor (FR-6).
+- **FR-18** *Auslassen* empties the slot for this date, with an optional note (e.g. "Spontaner Besuch bei den Grosseltern").
+- **FR-19** *Zurücksetzen* restores the plan for this slot and for every slot that still holds the result of an exchange with a restored slot. A new swap on a slot replaces its previous swap.
+- **FR-20** Freshness warnings, shown before choosing, never blocking. The uncooked ingredients keep from the Saturday of the planning week until Monday (`short`), Thursday (`medium`) or all week (`long`), i.e. the upper end of the `shelf_life` range.
+  - At each exchange option: a meal would move to a later date after its ingredients keep.
+  - At *Aus der Liste* and *Auslassen*: the current meal is `short` or `medium`, so its ingredients would be left over.
+- **FR-21** A meal cannot be deleted while it is in the plan or in a swap from today on. Deleting a meal also deletes its past swaps. The meal list counts uses in the plan only.
 
 ## Non-functional requirements
 
@@ -82,6 +104,6 @@ Phases 3 to 5 are not specified yet. Earlier phases must not block them (see [ar
 - **NFR-6 Concurrency:** if two people edit at the same time, the last save wins.
 - **NFR-7 Time:** time zone Europe/Zurich, weeks start on Monday.
 
-## Out of scope (phases 1–2)
+## Out of scope (phases 1–3)
 
-Swapping meals, recipes, shopping list, health balance, a "freezable" tag, individual user accounts, multiple households, offline data, email, notifications.
+Week planning, recipes, shopping list, health balance, a "freezable" tag, individual user accounts, multiple households, offline data, email, notifications.

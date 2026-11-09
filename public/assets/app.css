@@ -708,6 +708,174 @@ fieldset.tag label {
     margin-bottom: 0;
 }
 
+/* Swap (FR-16 to FR-21) */
+
+.slot-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+}
+
+.slot-actions form {
+    margin: 0;
+}
+
+.slot-actions :is(a, button) {
+    width: auto;
+    margin: 0;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 2rem;
+    background-color: var(--pico-card-background-color);
+    color: var(--pico-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.5;
+    text-decoration: none;
+}
+
+.slot-actions :is(a, button):hover {
+    border-color: var(--pico-primary);
+}
+
+.slot-actions .reset {
+    color: var(--pico-muted-color);
+}
+
+.slot-actions .swap::before { content: "\1F504" / ""; margin-right: 0.375rem; }
+.slot-actions .skip::before { content: "\23ED\FE0F" / ""; margin-right: 0.375rem; }
+.slot-actions .reset::before { content: "\21A9\FE0F" / ""; margin-right: 0.375rem; }
+
+.swapped {
+    margin-left: 0.375rem;
+    padding: 0.0625rem 0.5rem;
+    border-radius: 1rem;
+    background-color: color-mix(in srgb, var(--pico-primary) 14%, transparent);
+    color: var(--pico-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.skipped {
+    color: var(--pico-muted-color);
+}
+
+.skipped::before {
+    content: "\23ED\FE0F" / "";
+    margin-right: 0.375rem;
+    font-style: normal;
+}
+
+.warning {
+    display: block;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    background-color: color-mix(in srgb, #e8a317 18%, transparent);
+    color: var(--pico-color);
+    font-size: 0.875rem;
+    font-weight: normal;
+}
+
+.warning::before {
+    content: "\26A0\FE0F" / "";
+    margin-right: 0.375rem;
+}
+
+.choice-list {
+    padding: 0;
+}
+
+.choice-list li {
+    margin-bottom: 0.5rem;
+    list-style: none;
+}
+
+:is(.choice-list, .meal-list) form,
+form:has(> .meal-list) {
+    margin: 0;
+}
+
+button.choice {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--pico-muted-border-color);
+    background-color: var(--pico-card-background-color);
+    box-shadow: none;
+    color: var(--pico-color);
+    font-weight: normal;
+    text-align: left;
+}
+
+button.choice:is(:hover, :focus-visible) {
+    border-color: var(--pico-primary);
+}
+
+button.choice small {
+    color: var(--pico-muted-color);
+}
+
+button.choice small::before {
+    content: var(--meal-time-icon) / "";
+    margin-right: 0.375rem;
+}
+
+button.choice .warning {
+    margin-top: 0.375rem;
+}
+
+.meal-list button.choice {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.625rem 0;
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+}
+
+.meal-list button.choice > span:not(.avatar) {
+    flex: 1;
+    min-width: 0;
+}
+
+.meal-list button.choice:hover strong {
+    color: var(--pico-primary);
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.5rem;
+    align-items: end;
+}
+
+.filters label {
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+.filters :is(select, button) {
+    margin: 0;
+}
+
+@media (max-width: 575.98px) {
+    .filters {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .filters button {
+        grid-column: 1 / -1;
+    }
+}
+
 /* Login and offline page */
 
 .login {

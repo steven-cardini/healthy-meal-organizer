@@ -32,9 +32,16 @@
 | D-28 | Navigation: a tab bar at the bottom on phones, at the top on wider screens. Swiping left / right on the day and week view drags the content with the finger and, past a quarter of the screen width or with a quick flick, follows the next / previous link. The old content then slides on from where the finger let go and the new content follows directly behind it (cross-document view transitions), without fading. Buttons and the tab bar change the page without animation. No swipe while zoomed in. Small JavaScript in `app.js`, no framework (D-3). | Native app feel and thumb reach. An animation only where a gesture asks for it. Everything still works without JavaScript or view transition support (buttons, no animation). Rejected: fading; sliding on button taps. |
 | D-29 | CSS and JS URLs carry the file's modification time (`asset_url()`). | Browsers otherwise keep using an outdated `app.css` after a deployment. Rejected: manual version numbers (easy to forget). |
 | D-30 | No logout. | Users never log out on their own devices; all devices can be logged out on the server (see `README.md`). |
+| D-31 | Swaps (FR-16) are rows in a `swap` table keyed by (`date`, `meal_time`) with a meal, a note, or neither (skipped). Both rows of an exchange store the other slot (`partner_*`). Swaps are kept after their date. | The plan stays untouched; kept swaps can feed the health balance later. Rejected: editing the plan (changes every later cycle); one row per exchange (a slot can then be in two exchanges). |
+| D-32 | Swaps only from the day view, from today until Friday of the current planning week (Saturday to Friday). Later weeks belong to week planning (phase 4). | Spontaneous changes after the groceries arrived. |
+| D-33 | Freshness (FR-20): ingredients arrive on the Saturday of the planning week and keep until the upper end of the `shelf_life` range. Warnings never block. | Few false alarms; the household decides. Rejected: lower end of the range (more warnings). |
+| D-34 | *Zurücksetzen* also restores every slot that still holds the result of an exchange with a restored slot (FR-19). A slot keeps no swap history. | Otherwise a meal could be cooked twice or disappear. Rejected: reset only this slot. |
+| D-35 | Hints (FR-14) compare slots by date, including swaps. | Hints would be wrong after a swap. |
+| D-36 | Swap UI without JavaScript (D-3): small buttons below the slot; *Zurücksetzen* saves at once; each meal of the list is one submit button (one tap); filters are a GET form (prep time, protein source). | Fast on the phone, no extra confirmation for an action that can be undone. |
 
 ## Open points (before or during implementation)
 
+- **Deployment of phase 3:** the `swap` table was added to schema version 1 without a migration. Delete `data/db.sqlite` on the server once after deploying.
 - **Hosting:** set the web server document root to `<repo>/public` before the first deployment.
 - **Hosting:** check that `REMOTE_ADDR` is the client IP and not the IP of the nginx proxy. Login throttling depends on it.
 - **Hosting:** check once that `http://` redirects to `https://` and that `https://` loads without a redirect loop (nginx in front of Apache).
