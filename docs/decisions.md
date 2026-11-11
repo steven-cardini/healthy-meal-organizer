@@ -56,3 +56,10 @@
 ## Open points (before or during implementation)
 
 - **Deployment of phase 5:** `ingredient`, `meal_ingredient` and `meal.recipe_url` are added to schema version 1 without a migration, as production holds only test data. Delete `data/db.sqlite` on the server once after deploying phase 5. From then on, the database holds real data and schema changes need migrations (D-17).
+
+Before production holds real data (the database can still be deleted until then):
+
+- **Backups:** no backup is set up yet (`README.md` only says `data/` must be backed up). Check that `data/` survives a deployment, or move `data_dir` outside the deployed folder. Add a daily consistent copy, e.g. a scheduled PHP script using `SQLite3::backup()` (works with the host's older SQLite).
+- **Data needed by phase 6:** all tags are mandatory without a default (FR-13), so a new tag or a split tag value means editing every meal again. Decide before entering the meal list whether phase 6 needs e.g. processed meat apart from `meat` (Swiss recommendations limit it separately) or a tag for the starch source (wholegrain). Also: deleting a meal removes it from past dates (FR-21), which phase 6 is meant to use.
+- **Schema version check:** `open_db()` applies `db/schema.sql` only when `user_version` is 0. If `schema.sql` gets a new version without a migration, an existing database silently keeps the old schema. Cheap now: refuse to run if the version differs from the expected one, with a smoke test. With the first migration: run each migration in a transaction, after a backup, tested on a copy of an old database (every push deploys to production).
+- **Reset of production:** set `load_test_data` to `false`, then delete `db.sqlite`. The first logged-in request fixes the current week as *Woche 1*, which keeps following the week blueprints (FR-25), so reset right before entering the real week blueprints.
