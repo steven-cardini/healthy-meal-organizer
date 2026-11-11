@@ -516,7 +516,7 @@ function render_meal_form(PDO $db, array $meal, ?int $id, ?array $target, int $u
 {
     render('meal', $id === null ? 'Neues Gericht' : 'Gericht bearbeiten',
         ['meal' => $meal, 'id' => $id, 'target' => $target, 'uses' => $uses, 'error' => $error,
-            'ingredientNames' => ingredient_names($db)],
+            'ingredientCategories' => ingredient_categories($db)],
         'meals', $error === null ? 200 : 422);
 }
 

@@ -64,8 +64,8 @@ $ingredientRows[] = ['name' => '', 'category' => ''];
         <button type="button" class="secondary outline add-ingredient" hidden>+ Zutat</button>
     </fieldset>
     <datalist id="ingredient-names">
-        <?php foreach ($ingredientNames as $ingredientName): ?>
-            <option value="<?= e($ingredientName) ?>"></option>
+        <?php foreach ($ingredientCategories as $ingredientName => $category): ?>
+            <option value="<?= e($ingredientName) ?>" data-category="<?= e($category) ?>"></option>
         <?php endforeach ?>
     </datalist>
     <div class="actions">

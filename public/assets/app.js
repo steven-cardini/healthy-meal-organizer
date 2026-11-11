@@ -102,6 +102,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Meal form: a known ingredient name selects its category (FR-28).
+    const ingredientNames = document.getElementById('ingredient-names');
+    document.querySelector('.ingredient-rows')?.addEventListener('input', (event) => {
+        const name = event.target.matches('input') ? event.target.value.trim().toLowerCase() : null;
+        const known = name && [...ingredientNames.options].find((option) => option.value.toLowerCase() === name);
+        if (known) {
+            event.target.closest('.ingredient').querySelector('select').value = known.dataset.category;
+        }
+    });
+
     // Grocery list: ticks are kept per week while the app is open (D-49).
     const groceryList = document.querySelector('.grocery-list');
     if (groceryList) {

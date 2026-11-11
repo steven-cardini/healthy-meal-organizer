@@ -325,12 +325,13 @@ function load_ingredients(PDO $db, ?int $mealId = null): array
     return $ingredients;
 }
 
-/** @return list<string> all ingredient names, sorted (suggestions in the meal form) */
-function ingredient_names(PDO $db): array
+/** @return array<string, string> name => category of all ingredients, sorted by name (suggestions in the meal form) */
+function ingredient_categories(PDO $db): array
 {
-    $names = $db->query('SELECT name FROM ingredient')->fetchAll(PDO::FETCH_COLUMN);
-    usort($names, fn(string $a, string $b): int => strcmp(sort_key($a), sort_key($b)));
-    return $names;
+    $categories = $db->query('SELECT name, category FROM ingredient')->fetchAll(PDO::FETCH_KEY_PAIR);
+    // Numeric names become int keys.
+    uksort($categories, fn(int|string $a, int|string $b): int => strcmp(sort_key((string)$a), sort_key((string)$b)));
+    return $categories;
 }
 
 /**

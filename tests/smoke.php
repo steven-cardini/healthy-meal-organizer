@@ -748,7 +748,7 @@ check('edit form shows the saved ingredients with their category, suggestions an
     substr_count($edit, 'name="ingredient_name[]"') === 4
     && (bool)preg_match('~value="Kartoffeln".*?<option value="fruit_vegetables" selected>.*?value="Butter &lt;b&gt;".*?'
         . '<option value="dairy_eggs_ready_meals" selected>~s', $edit)
-    && str_contains($edit, 'value="https://example.com/rösti?a=1&amp;b=2"') && str_contains($edit, '<option value="Butter &lt;b&gt;"></option>'));
+    && str_contains($edit, 'value="https://example.com/rösti?a=1&amp;b=2"') && str_contains($edit, '<option value="Butter &lt;b&gt;" data-category="dairy_eggs_ready_meals"></option>'));
 check('meal list: no mark once a meal has ingredients', !str_contains(request('GET', '/meals')['body'], 'Keine Zutaten'));
 check('day view shows the recipe link, opening in a new tab', str_contains(request('GET', '/')['body'],
     '<a href="https://example.com/rösti?a=1&amp;b=2" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>'));
