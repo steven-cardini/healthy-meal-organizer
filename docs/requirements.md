@@ -20,7 +20,7 @@ One household. All members share one password and have the same rights (view and
 | 4       | Planning: plan the next week from its week blueprint before the groceries are ordered     |
 | 5       | Ingredients, recipe link, grocery list                                                    |
 | 6       | Health balance based on scientific recommendations (e.g. Swiss food pyramid), using the meal tags |
-| Later   | Nice to have, low priority: (a) while swiping, the previous / next day or week is already shown next to the content (loaded in the background), so the switch needs no wait; (b) more week blueprints (e.g. Woche 3 and 4), minimum and maximum still open; (c) when skipping a meal whose ingredients keep only briefly, suggest moving it to a later slot whose meal keeps longer and skipping that one instead |
+| Later   | Nice to have, low priority: (a) while swiping, the previous / next day or week is already shown next to the content (loaded in the background), so the switch needs no wait; (b) more week blueprints (e.g. Woche 3 and 4), minimum and maximum still open; (c) when skipping a meal whose ingredients keep only briefly, suggest moving it to a later slot whose meal keeps longer and skipping that one instead; (d) an optional note for an ingredient of a meal (e.g. *Haselnüsse* with note *ganz* or *gemahlen*), so the same ingredient can appear more than once for a meal if the notes differ (or one has none); open: how notes are shown in the ingredient suggestions |
 
 Phase 6 and "Later" are not specified yet. Earlier phases must not block them (see [architecture.md](architecture.md#extension-points)).
 
