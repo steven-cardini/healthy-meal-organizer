@@ -446,13 +446,13 @@ function save_meal_ingredients(PDO $db, int $mealId, array $ingredients): void
 {
     $db->prepare('DELETE FROM meal_ingredient WHERE meal_id = ?')->execute([$mealId]);
     $upsert = $db->prepare('INSERT INTO ingredient (name, name_key, category) VALUES (?, ?, ?)
-        ON CONFLICT (name_key) DO UPDATE SET name = excluded.name, category = excluded.category RETURNING id');
+        ON CONFLICT (name_key) DO UPDATE SET name = excluded.name, category = excluded.category');
+    $find = $db->prepare('SELECT id FROM ingredient WHERE name_key = ?');
     $link = $db->prepare('INSERT INTO meal_ingredient (meal_id, ingredient_id, position) VALUES (?, ?, ?)');
     foreach ($ingredients as $position => $ingredient) {
         $upsert->execute([$ingredient['name'], $ingredient['name_key'], $ingredient['category']]);
-        $ingredientId = (int)$upsert->fetchColumn();
-        $upsert->closeCursor();
-        $link->execute([$mealId, $ingredientId, $position]);
+        $find->execute([$ingredient['name_key']]);
+        $link->execute([$mealId, (int)$find->fetchColumn(), $position]);
     }
     delete_unused_ingredients($db);
 }

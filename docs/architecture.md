@@ -15,7 +15,7 @@ Browser / PWA ──HTTPS──▶ Apache (docroot = public/) ──▶ public/i
 | Layer   | Choice                                                                                          |
 |---------|-------------------------------------------------------------------------------------------------|
 | Backend | Plain PHP 8.5 (`declare(strict_types=1)`), no framework, no Composer                            |
-| Data    | SQLite via PDO. `data/db.sqlite` is created from `db/schema.sql` on the first request           |
+| Data    | SQLite via PDO. `data/db.sqlite` is created from `db/schema.sql` on the first request. SQL must work with the host's older SQLite: upserts (3.24) yes, `RETURNING` (3.35) no |
 | UI      | Server-rendered HTML templates, plain forms, Pico.css v2 (jade theme, CDN, version-pinned, SRI) with warm colours overridden in `app.css`. JavaScript only for the service worker registration, swipe navigation (D-28), ingredient rows in the meal form (D-47) and ticks on the grocery list (D-49); every page works without it |
 | PWA     | Web app manifest and a small service worker                                                     |
 | Hosting | Apache with `mod_rewrite`, HTTPS                                                                |
