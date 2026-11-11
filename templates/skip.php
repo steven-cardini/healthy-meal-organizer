@@ -10,12 +10,15 @@
     <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
     <input type="hidden" name="date" value="<?= e($date->format('Y-m-d')) ?>">
     <input type="hidden" name="meal_time" value="<?= e($mealTime) ?>">
+    <?php if (!$swap): ?>
+        <input type="hidden" name="planning" value="1">
+    <?php endif ?>
     <label>
         Notiz (optional)
         <input type="text" name="note" maxlength="<?= MAX_TEXT_LENGTH ?>" placeholder="z.B. Besuch bei den Grosseltern">
     </label>
     <div class="actions">
         <button type="submit">Auslassen</button>
-        <a href="<?= e(day_url($date)) ?>" role="button" class="secondary outline">Abbrechen</a>
+        <a href="<?= e(return_url($swap, $date)) ?>" role="button" class="secondary outline">Abbrechen</a>
     </div>
 </form>

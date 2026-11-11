@@ -304,16 +304,6 @@ article.meal-time h2 {
     border: 2px dashed var(--pico-muted-border-color);
     border-radius: var(--pico-border-radius);
     color: var(--pico-muted-color);
-    text-decoration: none;
-}
-
-a.unplanned:hover {
-    border-color: var(--pico-primary);
-}
-
-.unplanned span {
-    color: var(--pico-primary);
-    font-weight: 600;
 }
 
 .note::before {
@@ -392,6 +382,14 @@ a.unplanned:hover {
     --hint-color: #22a06b;
     --icon: "\1F955";
 }
+
+.hint-not_fresh_short,
+.hint-not_fresh_medium {
+    --hint-color: #d9480f;
+}
+
+.hint-not_fresh_short { --icon: "\23F0"; }
+.hint-not_fresh_medium { --icon: "\1F4C6"; }
 
 /* Tag value icons (tag_class() in src/app.php) */
 
@@ -962,4 +960,44 @@ body.offline {
     padding: 2rem 1rem;
     font-family: system-ui, sans-serif;
     text-align: center;
+}
+
+/* Planning (FR-22 to FR-26) */
+
+.planning-open {
+    padding: 0.5rem 0.75rem;
+    border: 2px dashed color-mix(in srgb, var(--pico-primary) 45%, transparent);
+    border-radius: var(--pico-border-radius);
+    font-weight: 600;
+}
+
+.planning-open::before {
+    content: "\1F4DD" / "";
+    margin-right: 0.5rem;
+}
+
+.blueprint-choice button {
+    width: auto;
+}
+
+.planning-day h2 span {
+    color: var(--pico-muted-color);
+    font-weight: normal;
+}
+
+.planning-day .week-slot {
+    position: relative;
+}
+
+.planning-day .week-slot > div {
+    padding-right: 2.5rem;
+}
+
+.planning-day .week-slot > details {
+    grid-column: 2;
+}
+
+.planning-day details.slot-menu > summary {
+    top: -0.625rem;
+    right: -0.5rem;
 }

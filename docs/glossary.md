@@ -6,24 +6,23 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 
 | English (code/docs) | German (UI)        | Code identifier      | Definition | Phase |
 |---------------------|--------------------|----------------------|------------|-------|
-| Meal plan           | Menüplan           | `meal_plan`          | The 14-day plan of what is cooked, repeated forever. | 1 |
-| Cycle               | Zyklus             | `cycle`              | The 14-day period after which the meal plan repeats. | 1 |
-| Cycle start date    | Startdatum         | `cycle_start_date`   | Monday on which cycle day 1 falls. Defines the cycle week of every date. | 1 |
-| Cycle week          | Woche 1 / Woche 2  | `cycle_week`         | First or second week of the cycle (1 or 2). | 1 |
-| Cycle day           | –                  | `cycle_day`          | Day within the cycle, 1–14 (1 = Monday of cycle week 1). | 1 |
-| Calendar week       | Kalenderwoche (KW) | `calendar_week`      | Real week Monday–Sunday (ISO number). Not the same as the cycle week. | 1 |
+| Week blueprints     | Wochenvorlagen       | `week_blueprints`    | Both week blueprints together. The app itself is called *Menüplan*. | 1 |
+| Week blueprint      | Woche 1 / Woche 2  | `blueprint`          | One of two template weeks (1 or 2) from which a week is planned. Weeks use them alternately. | 1 |
+| Blueprint day       | –                  | `day`                | Day within a week blueprint, 1–7 (1 = Saturday). | 1 |
+| Week                | Woche              | `week`               | Saturday to Friday (`WEEK_START`). The groceries for it arrive on its Saturday (or Friday evening). | 1 |
 | Meal time           | Mahlzeit           | `meal_time`          | Lunch or dinner. | 1 |
 | Lunch               | Mittagessen        | `lunch`              | Midday meal time. | 1 |
 | Dinner              | Abendessen         | `dinner`             | Evening meal time. | 1 |
-| Slot                | –                  | `plan_slot`          | One meal time on one cycle day (28 in total). Holds a meal, a note, or nothing. | 1 |
+| Slot                | –                  | `blueprint_slot`     | One meal time on one day of a week blueprint (28 in total). Holds a meal, a note, or nothing. | 1 |
+| Date slot           | –                  | `date_slot`          | One meal time on one date: of a planned week, of the planning of the next week, or a swap. | 4 |
 | Meal                | Gericht            | `meal`               | Reusable dish in the meal list, e.g. "Älplermagronen". | 1 |
 | Meal list           | Gerichte           | `meals`              | All meals of the household. | 1 |
 | New meal            | Neues Gericht      | `new_meal`           | Form to add a meal with its name and all tags. | 2 |
 | Note                | Notiz              | `note`               | Short text in a slot instead of a meal, e.g. "Eltern kochen". | 1 |
 | Not planned         | Nicht geplant      | –                    | Display text for an empty slot. | 1 |
 | Day view            | Heute / Tag        | `day`                | Page with the meals of one day (default: today). | 1 |
-| Week view           | Woche              | `week`               | Page with the meals of one calendar week (default: current week). | 1 |
-| Plan editor         | Plan bearbeiten    | `plan`               | Page to fill the 28 slots. Tab label: *Plan*. | 1 |
+| Week view           | Woche              | `week`               | Page with the meals of one week (default: current week). | 1 |
+| Week blueprint editor | Wochenvorlagen bearbeiten | `week_blueprints` | Page to fill the 28 slots, linked from the *Planen* page. | 1 |
 | Household           | Haushalt           | –                    | The group of users sharing one plan and one password. | 1 |
 | Shared password     | Passwort           | `password_hash`      | The single household password. | 1 |
 | Log in              | Anmelden           | `login`              | Start a session on a device. | 1 |
@@ -38,18 +37,20 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Hint                | –                  | `slot_hints`         | Short note below a meal in the day and week view, e.g. "Rohkost dazu". | 2 |
 | Summary tags        | –                  | `SUMMARY_TAGS`       | Tags shown in the day view and the meal list: protein source, prep time, kid suitability. | 2 |
 | Past                | vorbei             | `past`               | Meal time that is over: lunch from 14:00, dinner from the next day. | 3 |
-| Planning week       | –                  | `planning_week`      | Saturday to Friday. The groceries for it arrive on its Saturday (or Friday evening). | 3 |
-| Swap                | Anderes Gericht / Gericht planen / getauscht | `swap` | One-time change of a slot on a specific date: another meal, or skipped. A swapped meal is marked *getauscht*. *Gericht planen*: for a slot without a meal. | 3 |
-| Exchange            | Gericht tauschen   | `exchange`           | Swap in which two slots of the planning week exchange their meals. | 3 |
-| Move                | Gericht verschieben / verschoben | `move` | Swap that moves the meal of one slot of the planning week to a slot without a meal; the first slot is then empty. Marked *verschoben*. | 3 |
-| Skip                | Auslassen          | `skip`               | Swap that empties a slot on a date, with an optional note. | 3 |
-| Reset               | Zurücksetzen       | `reset`              | Remove a swap, so the plan slot applies again. | 3 |
-| Entry               | –                  | `entry`              | What a slot holds on a date: the swap if there is one, otherwise the plan slot. | 3 |
-| Week planning       | –                  | –                    | Changing or skipping meals for the coming planning week only. | 4 |
+| Swap                | Anderes Gericht / Gericht planen / getauscht | `swap` | One-time change of a slot on a date of a planned week: another meal, or skipped. A swapped meal is marked *getauscht*. *Gericht planen*: for a slot without a meal. | 3 |
+| Exchange            | Gericht tauschen   | `exchange`           | Swap or planning change in which two slots of the week exchange their meals. | 3 |
+| Move                | Gericht verschieben / verschoben | `move` | Swap or planning change that moves the meal of one slot of the week to a slot without a meal; the first slot is then empty. A swap is marked *verschoben*. | 3 |
+| Skip                | Auslassen          | `skip`               | Swap or planning change that empties a slot on a date, with an optional note. | 3 |
+| Reset               | Zurücksetzen       | `reset`              | Remove a swap, so the planned week applies again, or a planning change, so the week blueprint applies again. | 3 |
+| Entry               | –                  | `entry`              | What a slot holds on a date: the swap if there is one, otherwise the planned week (or, not planned yet: its planning, otherwise its week blueprint). | 3 |
+| Planning            | Planen / Nächste Woche planen | `planning` | Planning the next week from its week blueprint, before the groceries are ordered. | 4 |
+| Planned week        | –                  | `week.planned`       | A week whose planning is complete, or that has started. Its slots no longer follow the week blueprints. | 4 |
+| Complete planning   | Planung abschliessen | `complete_week`    | Make the next week a planned week. Cannot be undone. | 4 |
+| Planning open       | Planung offen      | –                    | Notice in the day and week view for a week not planned yet. | 4 |
 | Recipe              | Rezept             | `recipe`             | Ingredients and preparation steps of a meal. | 5 |
 | Ingredient          | Zutat              | `ingredient`         | Food item with quantity and unit in a recipe. | 5 |
 | Servings            | Portionen          | `servings`           | Number of portions a recipe yields. | 5 |
-| Shopping list       | Einkaufsliste      | `shopping_list`      | Ingredients needed for a period of the plan, combined. | 5 |
+| Shopping list       | Einkaufsliste      | `shopping_list`      | Ingredients needed for a planned week, combined. | 5 |
 | Health balance      | Ausgewogenheit     | `health_balance`     | How well meals match dietary recommendations. | 6 |
 | Food pyramid        | Lebensmittelpyramide | `food_pyramid`     | Swiss dietary recommendation (SGE); in Germany often called "Ernährungspyramide". | 6 |
 | Food group          | Lebensmittelgruppe | `food_group`         | Category of the food pyramid, e.g. vegetables, protein. | 6 |

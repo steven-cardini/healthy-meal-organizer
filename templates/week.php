@@ -1,8 +1,6 @@
 <?php declare(strict_types=1) ?>
-<hgroup>
-    <h1>KW <?= e($calendarWeek) ?> · Woche <?= e($cycleWeek) ?></h1>
-    <p><?= e($days[0]->format('j.n.Y')) ?> – <?= e($days[6]->format('j.n.Y')) ?></p>
-</hgroup>
+<h1>Woche <?= e($week['blueprint']) ?> · <?= e(format_week_dates($weekStart)) ?></h1>
+<?= planning_open_html($weekStart, $week) ?>
 <?php foreach ($days as $day): ?>
     <?php $isToday = $day == $today ?>
     <article class="week-day"<?= $isToday ? ' aria-current="date"' : '' ?>>

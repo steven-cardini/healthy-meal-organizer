@@ -32,7 +32,7 @@ public/               Document root (the only web-accessible folder)
   offline.html
   assets/             app.css (theme, tag icons), app.js (service worker registration, swipe, slide direction), icons/
 src/                  PHP code: app.php (helpers, config, DB, session), calendar.php, repository.php, pages.php,
-                      test_data.php (test plan, loaded into an empty DB if config.php has load_test_data = true)
+                      test_data.php (test week blueprints, loaded into an empty DB if config.php has load_test_data = true)
 templates/            HTML templates
 db/schema.sql         Database schema (SSOT)
 data/                 db.sqlite, sessions/ (gitignored, created at runtime; location set by data_dir in config.php)
@@ -47,35 +47,42 @@ config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 |----------|-----------------|-------------------------------------------------|
 | GET      | `/`             | Day view; optional `?date=YYYY-MM-DD`           |
 | GET      | `/week`         | Week view; optional `?date=` (any day of the week) |
-| GET      | `/plan`         | Plan editor                                     |
-| POST     | `/plan/slot`    | Save one slot                                   |
+| GET      | `/planning`     | *Planen*: the next week                         |
+| POST     | `/planning/blueprint` | Plan the next week from the other week blueprint (`blueprint`) |
+| GET/POST | `/planning/complete` | *Planung abschliessen*: confirmation / complete |
+| GET      | `/week-blueprints` | Week blueprint editor                        |
+| POST     | `/week-blueprints/slot` | Save one slot                           |
 | GET      | `/meals`        | Meal list                                       |
-| GET      | `/swap`         | *Anderes Gericht* / *Gericht planen* for `?date=&meal_time=`; optional filters `?prep_time=&protein_source=` |
+| GET      | `/swap`         | *Anderes Gericht* / *Gericht planen* for `?date=&meal_time=`; optional filters `?prep_time=&protein_source=`. The `/swap` routes plan when the date is in the next week and it is not planned yet, otherwise they swap |
 | POST     | `/swap/exchange`| Exchange the meals of two slots (`date`, `meal_time`, `partner_date`, `partner_meal_time`) |
 | POST     | `/swap/move`    | Move the meal of the partner slot to this slot without a meal (same fields) |
 | POST     | `/swap/meal`    | Put a meal from the meal list into the slot of a date |
 | GET/POST | `/swap/skip`    | *Auslassen* form / skip with an optional note |
 | POST     | `/swap/reset`   | *Zurücksetzen*                                  |
-| GET/POST | `/meals/new`    | New meal form / create; optional `?name=`, and the slot to fill after saving: `?cycle_day=&meal_time=` (plan) or `?date=&meal_time=` (swap) |
+| GET/POST | `/meals/new`    | New meal form / create; optional `?name=`, and the slot to fill after saving: `?blueprint=&day=&meal_time=` (week blueprint) or `?date=&meal_time=` (planning, swap) |
 | GET/POST | `/meals/edit`   | Edit form (`?id=`) / save name and tags         |
 | POST     | `/meals/delete` | Delete an unused meal                           |
 | GET/POST | `/login`        | Login form / login                              |
 
-Every route except `/login` requires a session. Every POST checks the CSRF token and redirects afterwards (Post/Redirect/Get). Messages after a POST ("Gespeichert.", errors) are shown once, next to the edited slot or meal (swaps: at the top of the day view). Exception: an error in the meal form shows the form again with the entered values and status 422 (D-22).
+Every route except `/login` requires a session. Every POST checks the CSRF token and redirects afterwards (Post/Redirect/Get). Messages after a POST ("Gespeichert.", errors) are shown once, next to the edited slot or meal (swaps: at the top of the day view; planning: at the top of the *Planen* page). Exception: an error in the meal form shows the form again with the entered values and status 422 (D-22).
 
-## Plan editor
+## Week blueprint editor
 
-Each slot is a form with a choice *Gericht* / *Notiz* and one text field (suggestions from the meal list via `<datalist>`). An empty text field empties the slot. A meal name not yet in the meal list redirects to `/meals/new` with the name and the slot; saving that form creates the meal, fills the slot and returns to the plan.
+Each slot is a form with a choice *Gericht* / *Notiz* and one text field (suggestions from the meal list via `<datalist>`). An empty text field empties the slot. A meal name not yet in the meal list redirects to `/meals/new` with the name and the slot; saving that form creates the meal, fills the slot and returns to the week blueprint editor.
 
-## Swap
+## Planning and swap
 
-What is cooked on a date (`load_entries()`): the swap of that date if there is one, otherwise the plan slot. The day and week view, and the hints, use these entries.
+What is cooked on a date (`load_entries()`): the `date_slot` row with `swap` = 1 if there is one, otherwise the row with `swap` = 0. Without a row: the slot of the week's week blueprint (`load_week()`). The day and week view, the *Planen* page and the hints use these entries.
 
-- Swappable: slots that are not past (`is_past()`) until Friday of the current planning week (`is_swappable()`); other slots redirect to the day view with a message.
-- An exchange or a move writes two rows, each pointing to the other slot (`partner_date`, `partner_meal_time`). In a move, the target row has `moved` = 1 and the source row has no meal. Any later swap of a slot overwrites its row and clears its partner.
+- Planning (`swap` = 0): slots of the next week while it is not planned (`week.planned` = 0). Swapping (`swap` = 1): slots that are not past (`is_past()`) of the current week, and of the next week once it is planned (`is_swappable()`). Other slots redirect with a message.
+- An exchange or a move writes two rows, each pointing to the other slot (`partner_date`, `partner_meal_time`). In a move, the target row has `moved` = 1 and the source row has no meal. Any later change of a slot overwrites its row and clears its partner. Marks (*getauscht*, *verschoben*, …) are shown for `swap` = 1, and for `swap` = 0 while the week is not planned (D-43).
+- Planning forms send `planning=1`. If the week was planned in the meantime (e.g. by another person), the change is rejected with a message instead of becoming a swap.
 - *Verschoben auf …* names the target only while the target row still points back (D-38).
-- *Zurücksetzen* deletes the rows of `reset_slots()`: the slot, then repeatedly every slot in the same planning week that points to a deleted slot or that a deleted slot points to, except past slots (FR-19).
-- Freshness: `fresh_until()` (`src/calendar.php`), warnings in `move_warning()` and `unused_warning()` (`src/app.php`).
+- *Zurücksetzen* deletes the rows of `reset_slots()` of the same `swap` value: the slot, then repeatedly every slot in the same week that points to a deleted slot or that a deleted slot points to, except past slots (FR-19).
+- Choosing the other week blueprint while planning deletes the week's rows (`swap` = 0) and stores the week blueprint in `week` (D-40).
+- *Planung abschliessen* (`complete_week()`) copies every week blueprint slot without a row into `date_slot` (`swap` = 0), empty slots too, and sets `week.planned` = 1. Every logged-in request first completes the current week if it is not planned (`plan_current_week()`, FR-25). Exception: while `week` is empty, it only stores the current week as a planned *Woche 1* without rows, so the first week of use keeps following the week blueprints.
+- Writes that read first (e.g. *Zurücksetzen*, *Planung abschliessen*) run in `BEGIN IMMEDIATE` transactions (`in_transaction()`).
+- Freshness: `fresh_until()` (`src/calendar.php`), warnings in `move_warning()` and `unused_warning()` (`src/app.php`), hint in `slot_hints()`.
 
 ## Meal form
 
@@ -86,28 +93,28 @@ Name and one radio group per tag (FR-13), without a preselected value; every gro
 Conceptual only. The SSOT is `db/schema.sql`.
 
 - **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13)
-- **plan_slot**: `cycle_day` (1–14), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
-  - Primary key (`cycle_day`, `meal_time`). Exactly one of `meal_id` / `note` is set. No row means the slot is empty.
-- **swap**: `date` (`YYYY-MM-DD`), `meal_time`, `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note`, `partner_date`, `partner_meal_time`, `moved` (0/1)
-  - Primary key (`date`, `meal_time`). At most one of `meal_id` / `note`; neither means skipped, or moved away if there is a partner. A partner (exchange, move) excludes a note. `moved`: the meal was moved here; requires a meal and a partner.
+- **blueprint_slot**: `blueprint` (1 | 2), `day` (1–7, 1 = Saturday), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
+  - Primary key (`blueprint`, `day`, `meal_time`). Exactly one of `meal_id` / `note` is set. No row means the slot is empty.
+- **week**: `start_date` (a Saturday, primary key), `blueprint` (1 | 2), `planned` (0/1). A row exists once a week is planned, or once the other week blueprint was chosen while planning it.
+- **date_slot**: `date` (`YYYY-MM-DD`), `meal_time`, `swap` (0: planned week or planning, 1: swap), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note`, `partner_date`, `partner_meal_time`, `moved` (0/1)
+  - Primary key (`date`, `meal_time`, `swap`). At most one of `meal_id` / `note`; neither means empty or skipped, or moved away if there is a partner. A partner (exchange, move) excludes a note. `moved`: the meal was moved here; requires a meal and a partner.
 - **login_failure**: `ip`, `failed_at` (for login throttling)
 
 Meal names and notes are trimmed, and runs of whitespace are collapsed to one space. The meal list is sorted with accented letters treated like their base letter (`ä` like `a`).
 
-Schema version: `PRAGMA user_version` (currently 1; the meal tags, the `swap` table and its `moved` column were added to version 1 while production held only test data, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
+Schema version: `PRAGMA user_version` (currently 1; the meal tags, `date_slot` and `week` were added to version 1 while production held only test data, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
 
-## Cycle calculation
+## Weeks and week blueprints
 
-`cycle_start_date` (a Monday, set in `config.php`) is cycle day 1.
+A week starts on the `WEEK_START` weekday (Saturday, `src/calendar.php`) on or before a date (`week_start()`) and ends on Friday.
 
 ```
-cycle_day  = floor_mod(days_between(cycle_start_date, date), 14) + 1
-cycle_week = cycle_day <= 7 ? 1 : 2
+blueprint = week.blueprint if the week has a row, otherwise the other week blueprint than the week before
+            (counted from the nearest earlier week with a row, or the nearest later one if there is none)
+day       = days_between(week_start, date) + 1      # 1 = Saturday
 ```
 
-Because the start date is a Monday, every calendar week maps to exactly one cycle week. Dates before the start date also work (`floor_mod`). "Today" is taken in `Europe/Zurich`; day arithmetic uses plain calendar dates, so DST changes have no effect.
-
-The planning week of a date starts on the Saturday on or before it (`planning_week_start()`) and ends on Friday.
+"Today" is taken in `Europe/Zurich`; day arithmetic uses plain calendar dates, so DST changes have no effect.
 
 ## Authentication
 
@@ -138,7 +145,6 @@ No inline scripts or styles. PHP errors are logged, never displayed (except on t
 
 Not implemented yet. Recorded so that the design leaves room for them.
 
-- **Week planning (phase 4):** can reuse the `swap` table for the dates of the coming planning week; `is_swappable()` limits swaps to the current one.
 - **Recipes, shopping list (phase 5):** recipes with ingredients, linked to `meal`.
-- **Health balance (phase 6):** based on the meal tags (FR-13) and the entries of past dates (plan and kept swaps).
-- **Cycle length (later):** `CYCLE_DAYS` and `cycle_week()` (`src/calendar.php`) and the `CHECK` on `plan_slot.cycle_day` assume 14 days.
+- **Health balance (phase 6):** based on the meal tags (FR-13) and the entries of past dates (planned weeks and kept swaps).
+- **More week blueprints (later):** the alternation and the `CHECK`s on `blueprint_slot.blueprint` and `week.blueprint` assume two.

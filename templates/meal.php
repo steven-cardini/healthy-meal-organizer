@@ -8,7 +8,7 @@ $cancel = $target['cancel'] ?? ($id === null ? '/meals' : "/meals#meal-$id");
     <?php if ($target !== null): ?>
         <p><?= e($target['text']) ?></p>
     <?php elseif ($id !== null): ?>
-        <p><?= $uses === 0 ? 'Nicht im Plan' : e($uses) . '× im Plan' ?></p>
+        <p><?= $uses === 0 ? 'Nicht in den Wochenvorlagen' : e($uses) . '× in den Wochenvorlagen' ?></p>
     <?php else: ?>
         <p>Wähle bei jeder Eigenschaft einen Wert.</p>
     <?php endif ?>
@@ -56,6 +56,6 @@ $cancel = $target['cancel'] ?? ($id === null ? '/meals' : "/meals#meal-$id");
             <button type="submit" class="secondary outline">Gericht löschen</button>
         </form>
     <?php else: ?>
-        <p><small class="muted">Löschen ist nur möglich, wenn das Gericht nicht im Plan eingetragen ist.</small></p>
+        <p><small class="muted">Löschen ist nur möglich, wenn das Gericht nicht in den Wochenvorlagen eingetragen ist.</small></p>
     <?php endif ?>
 <?php endif ?>

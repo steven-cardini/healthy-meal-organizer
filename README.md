@@ -1,6 +1,6 @@
 # Menüplan
 
-Web app (PWA) for one household that shows what is cooked today and this week, based on a meal plan that repeats every 14 days. See [docs/requirements.md](docs/requirements.md).
+Web app (PWA) for one household that shows what is cooked today and this week, each planned from two alternating week blueprints. See [docs/requirements.md](docs/requirements.md).
 
 Requirements: PHP 8.5 with `pdo_sqlite` and `mbstring`; Apache with `mod_rewrite` (production).
 
@@ -8,14 +8,13 @@ Requirements: PHP 8.5 with `pdo_sqlite` and `mbstring`; Apache with `mod_rewrite
 
 1. Copy `config.example.php` to `config.php` and fill in:
    - `password_hash`: `php -r 'echo password_hash("YOUR-PASSWORD", PASSWORD_DEFAULT), PHP_EOL;'`
-   - `cycle_start_date`: a Monday on which "Woche 1" starts.
    - `data_dir`: keep the default unless the data should live elsewhere (never inside `public/`).
    - `load_test_data`: see below.
 2. The database `data/db.sqlite` is created from `db/schema.sql` on the first request.
 
 ## Test data
 
-With `'load_test_data' => true` in `config.php`, an empty database (no meals, no slots) is filled with a full 14-day test plan on the next request. Works locally and on the server.
+With `'load_test_data' => true` in `config.php`, an empty database (no meals, no week blueprint slots) is filled with test week blueprints on the next request. Works locally and on the server.
 
 To start real usage: set it to `false` (or remove it), then delete `data/db.sqlite`. The next request creates an empty database.
 

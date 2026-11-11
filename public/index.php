@@ -24,15 +24,19 @@ set_exception_handler(function (Throwable $e): void {
 const ROUTES = [
     'GET /' => 'day_page',
     'GET /week' => 'week_page',
-    'GET /plan' => 'plan_page',
-    'POST /plan/slot' => 'save_slot_action',
+    'GET /planning' => 'planning_page',
+    'POST /planning/blueprint' => 'choose_blueprint_action',
+    'GET /planning/complete' => 'complete_page',
+    'POST /planning/complete' => 'complete_action',
+    'GET /week-blueprints' => 'week_blueprints_page',
+    'POST /week-blueprints/slot' => 'save_blueprint_slot_action',
     'GET /swap' => 'swap_page',
     'POST /swap/exchange' => 'swap_exchange_action',
     'POST /swap/move' => 'swap_move_action',
     'POST /swap/meal' => 'swap_meal_action',
     'GET /swap/skip' => 'skip_page',
     'POST /swap/skip' => 'skip_action',
-    'POST /swap/reset' => 'reset_swap_action',
+    'POST /swap/reset' => 'reset_action',
     'GET /meals' => 'meals_page',
     'GET /meals/new' => 'new_meal_page',
     'POST /meals/new' => 'new_meal_action',
@@ -55,6 +59,9 @@ $method = $_SERVER['REQUEST_METHOD'] === 'HEAD' ? 'GET' : $_SERVER['REQUEST_METH
 
 if ($path !== '/login' && !logged_in()) {
     redirect('/login');
+}
+if (logged_in()) {
+    plan_current_week($db);
 }
 $handler = ROUTES["$method $path"] ?? null;
 if ($handler === null) {

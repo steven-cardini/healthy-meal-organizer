@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 $slotFields = '<input type="hidden" name="date" value="' . e($date->format('Y-m-d')) . '">'
-    . '<input type="hidden" name="meal_time" value="' . e($mealTime) . '">';
+    . '<input type="hidden" name="meal_time" value="' . e($mealTime) . '">'
+    . ($swap ? '' : '<input type="hidden" name="planning" value="1">');
 ?>
 <?php $move = $entry['meal'] === null ?>
 <hgroup>
@@ -12,13 +13,13 @@ $slotFields = '<input type="hidden" name="date" value="' . e($date->format('Y-m-
 <section>
     <?php if ($move): ?>
         <h2>Gericht verschieben</h2>
-        <p class="muted">Ein Gericht von jetzt bis Freitag hierher verschieben. Dort ist dann nichts mehr geplant.</p>
+        <p class="muted">Ein Gericht dieser Woche hierher verschieben. Dort ist dann nichts mehr geplant.</p>
     <?php else: ?>
         <h2>Gericht tauschen</h2>
-        <p class="muted">Mit einem Gericht von jetzt bis Freitag. Die beiden tauschen den Platz.</p>
+        <p class="muted">Mit einem Gericht dieser Woche. Die beiden tauschen den Platz.</p>
     <?php endif ?>
     <?php if ($partners === []): ?>
-        <p>Bis Freitag ist <?= $move ? 'kein' : 'kein anderes' ?> Gericht geplant.</p>
+        <p>In dieser Woche ist <?= $move ? 'kein' : 'kein anderes' ?> Gericht geplant.</p>
     <?php endif ?>
     <ul class="choice-list">
         <?php foreach ($partners as $partner): ?>
@@ -85,6 +86,6 @@ $slotFields = '<input type="hidden" name="date" value="' . e($date->format('Y-m-
             <?php endforeach ?>
         </ul>
     </form>
-    <p><a href="<?= e(swap_url('/meals/new', $date, $mealTime)) ?>" role="button" class="outline">+ Neues Gericht</a></p>
+    <p><a href="<?= e(swap_url('/meals/new', $date, $mealTime, $swap)) ?>" role="button" class="outline">+ Neues Gericht</a></p>
 </section>
-<p><a href="<?= e(day_url($date)) ?>" role="button" class="secondary outline">Abbrechen</a></p>
+<p><a href="<?= e(return_url($swap, $date)) ?>" role="button" class="secondary outline">Abbrechen</a></p>

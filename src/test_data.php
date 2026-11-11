@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-// Test plan, loaded into an empty database when config.php has 'load_test_data' => true.
+// Test data, loaded into an empty database when config.php has 'load_test_data' => true.
 
 // [name => tag values in the order of MEAL_TAGS]
 const TEST_MEALS = [
@@ -31,28 +31,33 @@ const TEST_MEALS = [
     'Zürcher Geschnetzeltes mit Rösti' => ['meat', 'heavy', 'medium', 'high_flyer', 'short', 'eat_fresh', 'side_dish'],
 ];
 
-// [cycle_day => [lunch, dinner]]; a string is a meal from TEST_MEALS, ['note' => ...] a note, null an empty slot.
-const TEST_PLAN = [
-    1 => ['Älplermagronen mit Apfelmus', 'Gemüsesuppe mit Brot'],
-    2 => ['Spaghetti Bolognese', 'Salat mit Ei'],
-    3 => [['note' => 'Eltern kochen'], 'Rösti mit Spiegelei'],
-    4 => ['Linsencurry mit Reis', 'Birchermüesli'],
-    5 => ['Fischstäbchen mit Kartoffeln und Rüebli', 'Pizza'],
-    6 => ['Hörnli mit Ghackets', 'Raclette'],
-    7 => ['Zopf-Brunch', null],
-    8 => ['Gschwellti mit Käse', 'Minestrone'],
-    9 => ['Minestrone', 'Poulet-Geschnetzeltes mit Reis'],
-    10 => ['Spaghetti Bolognese', 'Omelette mit Salat'],
-    11 => ['Kürbisrisotto', 'Gemüsesuppe mit Brot'],
-    12 => ['Lachs mit Ofengemüse', 'Pizza'],
-    13 => ['Käsefondue', ['note' => 'Auswärts essen']],
-    14 => ['Zürcher Geschnetzeltes mit Rösti', 'Birchermüesli'],
+// [blueprint => [day => [lunch, dinner]]], day 1 = Saturday; a string is a meal from TEST_MEALS, ['note' => ...] a note,
+// null an empty slot.
+const TEST_BLUEPRINTS = [
+    1 => [
+        1 => ['Hörnli mit Ghackets', 'Raclette'],
+        2 => ['Zopf-Brunch', null],
+        3 => ['Älplermagronen mit Apfelmus', 'Gemüsesuppe mit Brot'],
+        4 => ['Spaghetti Bolognese', 'Salat mit Ei'],
+        5 => [['note' => 'Eltern kochen'], 'Rösti mit Spiegelei'],
+        6 => ['Linsencurry mit Reis', 'Birchermüesli'],
+        7 => ['Fischstäbchen mit Kartoffeln und Rüebli', 'Pizza'],
+    ],
+    2 => [
+        1 => ['Käsefondue', ['note' => 'Auswärts essen']],
+        2 => ['Zürcher Geschnetzeltes mit Rösti', 'Birchermüesli'],
+        3 => ['Gschwellti mit Käse', 'Minestrone'],
+        4 => ['Minestrone', 'Poulet-Geschnetzeltes mit Reis'],
+        5 => ['Spaghetti Bolognese', 'Omelette mit Salat'],
+        6 => ['Kürbisrisotto', 'Gemüsesuppe mit Brot'],
+        7 => ['Lachs mit Ofengemüse', 'Pizza'],
+    ],
 ];
 
-/** Loads the test plan if the database has no meals and no slots. Returns whether it loaded. */
+/** Loads the test data if the database has no meals and no blueprint slots. Returns whether it loaded. */
 function load_test_data_if_empty(PDO $db): bool
 {
-    $rows = (int)$db->query('SELECT (SELECT COUNT(*) FROM meal) + (SELECT COUNT(*) FROM plan_slot)')->fetchColumn();
+    $rows = (int)$db->query('SELECT (SELECT COUNT(*) FROM meal) + (SELECT COUNT(*) FROM blueprint_slot)')->fetchColumn();
     if ($rows > 0) {
         return false;
     }
@@ -61,10 +66,12 @@ function load_test_data_if_empty(PDO $db): bool
     foreach (TEST_MEALS as $name => $tags) {
         $ids[$name] = create_meal($db, ['name' => $name] + array_combine(array_keys(MEAL_TAGS), $tags));
     }
-    foreach (TEST_PLAN as $cycleDay => $slots) {
-        foreach (array_combine(array_keys(MEAL_TIMES), $slots) as $mealTime => $slot) {
-            if ($slot !== null) {
-                save_slot($db, $cycleDay, $mealTime, is_string($slot) ? $ids[$slot] : null, $slot['note'] ?? null);
+    foreach (TEST_BLUEPRINTS as $blueprint => $days) {
+        foreach ($days as $day => $slots) {
+            foreach (array_combine(array_keys(MEAL_TIMES), $slots) as $mealTime => $slot) {
+                if ($slot !== null) {
+                    save_blueprint_slot($db, $blueprint, $day, $mealTime, is_string($slot) ? $ids[$slot] : null, $slot['note'] ?? null);
+                }
             }
         }
     }

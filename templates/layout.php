@@ -5,7 +5,7 @@ $calendar = '<rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h
 $menu = [
     'day' => ['/', 'Heute', $calendar . '<rect x="7" y="13" width="4" height="4" rx="1" fill="currentColor"/>'],
     'week' => ['/week', 'Woche', $calendar . '<path d="M7 13.5h10M7 17h6"/>'],
-    'plan' => ['/plan', 'Plan', '<path d="M4 20h4L19.5 8.5a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'],
+    'planning' => ['/planning', 'Planen', '<path d="M4 20h4L19.5 8.5a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'],
     'meals' => ['/meals', 'Gerichte', '<path d="M3 12h18a9 7 0 0 1-18 0z"/><path d="M9 21.5h6M8 3.5c-1 1.5 1 2.5 0 4M12 2.5c-1 1.5 1 2.5 0 4M16 3.5c-1 1.5 1 2.5 0 4"/>'],
 ];
 ?>

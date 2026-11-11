@@ -48,6 +48,8 @@ const SUMMARY_TAGS = ['protein_source', 'prep_time', 'child_factor'];
 /** Filters of the meal list in "Anderes Gericht" (FR-17). */
 const FILTER_TAGS = ['prep_time', 'protein_source'];
 
+const WEEK_PLANNED = 'Die Planung der Woche ist abgeschlossen. Ändern geht jetzt in der Tagesansicht.';
+
 /** Invalid user input; the message is shown in the UI. */
 final class UserError extends RuntimeException
 {
@@ -59,10 +61,8 @@ function load_config(string $file): array
         throw new RuntimeException("Config file not found: $file");
     }
     $config = require $file;
-    $start = is_string($config['cycle_start_date'] ?? null) ? parse_date($config['cycle_start_date']) : null;
     if (!is_string($config['password_hash'] ?? null) || $config['password_hash'] === ''
-        || !is_string($config['data_dir'] ?? null)
-        || $start?->format('N') !== '1') {
+        || !is_string($config['data_dir'] ?? null)) {
         throw new RuntimeException('Invalid config, see config.example.php');
     }
     return $config;
@@ -172,7 +172,7 @@ function redirect(string $location): never
     exit;
 }
 
-/** $nav: active menu item ('day', 'week', 'plan', 'meals'), '' for none; null hides the menu. */
+/** $nav: active menu item ('day', 'week', 'planning', 'meals'), '' for none; null hides the menu. */
 function render(string $template, string $title, array $vars = [], ?string $nav = null, int $status = 200): never
 {
     http_response_code($status);
@@ -200,9 +200,7 @@ function asset_url(string $path): string
  * HTML for a slot as shown in the day and week view. $entries: see load_entries(), including the day before and after.
  * $withTags: day view, adds the protein avatar and SUMMARY_TAGS (docs/decisions.md D-25).
  */
-/** $planLink: an empty slot links to the plan editor (not where the ⋯ menu offers "Gericht planen", FR-17). */
-function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bool $withTags = false,
-    bool $planLink = true): string
+function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bool $withTags = false): string
 {
     $entry = $entries[$date->format('Y-m-d')][$mealTime];
     if ($entry['meal'] === null) {
@@ -210,13 +208,11 @@ function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bo
             $entry['note'] !== null => '<em class="note">' . e($entry['note']) . '</em>',
             $entry['moved_away'] => '<em class="moved">Verschoben'
                 . ($entry['moved_to'] === null ? '' : ' auf ' . e(slot_name(...$entry['moved_to']))) . '</em>',
-            $entry['swapped'] => '<em class="skipped">Ausgelassen</em>',
-            !$planLink => '<span class="unplanned">Nicht geplant</span>',
-            default => '<a href="/plan#' . e("slot-{$entry['cycle_day']}-$mealTime")
-                . '" class="unplanned">Nicht geplant <span>+ Planen</span></a>',
+            $entry['changed'] => '<em class="skipped">Ausgelassen</em>',
+            default => '<span class="unplanned">Nicht geplant</span>',
         };
     }
-    $name = '<p class="meal-name">' . e($entry['meal']) . ($entry['swapped']
+    $name = '<p class="meal-name">' . e($entry['meal']) . ($entry['changed']
         ? ' <small class="swapped">' . ($entry['moved'] ? 'verschoben' : 'getauscht') . '</small>' : '') . '</p>';
     $hints = '';
     foreach (slot_hints($entries, $date, $mealTime) as $kind => $label) {
@@ -272,13 +268,17 @@ function slot_hints(array $entries, DateTimeImmutable $date, string $mealTime): 
     if ($entry['vegetable_level'] !== 'main_component') {
         $hints[$entry['vegetable_level']] = MEAL_TAGS['vegetable_level']['values'][$entry['vegetable_level']];
     }
+    $until = fresh_until($entry['shelf_life'], week_start($date));
+    if ($until !== null && $date > $until) {
+        $hints["not_fresh_{$entry['shelf_life']}"] = 'Zutaten evtl. nicht mehr frisch';
+    }
     return $hints;
 }
 
 /** Freshness warning if the meal of $entry moves from $from to a later date after its ingredients keep (FR-20). */
 function move_warning(array $entry, DateTimeImmutable $from, DateTimeImmutable $to): ?string
 {
-    $until = fresh_until($entry['shelf_life'], planning_week_start($from));
+    $until = fresh_until($entry['shelf_life'], week_start($from));
     return $to > $from && $until !== null && $to > $until
         ? "Die Zutaten für {$entry['meal']} halten evtl. nicht bis " . weekday($to) . '.'
         : null;
@@ -309,6 +309,16 @@ function reset_warning(array $slots, DateTimeImmutable $date, string $mealTime):
     }
     $last = array_pop($names);
     return $last === null ? null : 'Setzt auch ' . ($names === [] ? '' : implode(', ', $names) . ' und ') . $last . ' zurück.';
+}
+
+/** Notice for a coming week that is not planned yet, for the next week with a link to *Planen* (FR-26). */
+function planning_open_html(DateTimeImmutable $weekStart, array $week): string
+{
+    $next = add_days(week_start(today()), 7);
+    if ($week['planned'] || $weekStart < $next) {
+        return '';
+    }
+    return '<p class="planning-open">Planung offen' . ($weekStart == $next ? ' · <a href="/planning">Planen</a>' : '') . '</p>';
 }
 
 function flash_html(?array $flash): string

@@ -2,17 +2,18 @@
 
 declare(strict_types=1);
 
-function day_page(PDO $db, array $config): never
+function day_page(PDO $db): never
 {
     $date = date_param('/');
     $today = today();
-    $cycleStart = parse_date($config['cycle_start_date']);
     $isToday = $date == $today;
-    $entries = load_entries($db, add_days($date, -1), add_days($date, 1), $cycleStart);
+    $entries = load_entries($db, add_days($date, -1), add_days($date, 1));
+    $swappable = [];
     $resetWarnings = [];
     foreach (array_keys(MEAL_TIMES) as $mealTime) {
-        if ($entries[$date->format('Y-m-d')][$mealTime]['swapped'] && is_swappable($date, $mealTime)) {
-            $resetWarnings[$mealTime] = reset_warning(reset_slots($db, $date, $mealTime), $date, $mealTime);
+        $swappable[$mealTime] = slot_mode($db, $date, $mealTime) === true;
+        if ($swappable[$mealTime] && $entries[$date->format('Y-m-d')][$mealTime]['changed']) {
+            $resetWarnings[$mealTime] = reset_warning(reset_slots($db, true, $date, $mealTime), $date, $mealTime);
         }
     }
     render('day', format_long_date($date), [
@@ -24,32 +25,35 @@ function day_page(PDO $db, array $config): never
             $date == add_days($today, -1) => 'Gestern',
             default => null,
         },
-        'cycleWeek' => cycle_week(cycle_day($date, $cycleStart)),
+        'weekStart' => week_start($date),
+        'week' => load_week($db, week_start($date)),
         'entries' => $entries,
+        'swappable' => $swappable,
         'resetWarnings' => $resetWarnings,
         'previous' => add_days($date, -1),
         'next' => add_days($date, 1),
     ], $isToday ? 'day' : '');
 }
 
-function week_page(PDO $db, array $config): never
+function week_page(PDO $db): never
 {
-    $monday = monday_of(date_param('/week'));
-    $start = parse_date($config['cycle_start_date']);
-    $days = [];
-    for ($i = 0; $i < 7; $i++) {
-        $days[] = add_days($monday, $i);
-    }
+    $start = week_start(date_param('/week'));
     render('week', 'Woche', [
-        'days' => $days,
-        'entries' => load_entries($db, add_days($monday, -1), add_days($monday, 7), $start),
+        'weekStart' => $start,
+        'week' => load_week($db, $start),
+        'days' => week_days($start),
+        'entries' => load_entries($db, add_days($start, -1), add_days($start, 7)),
         'today' => today(),
-        'isCurrentWeek' => $monday == monday_of(today()),
-        'calendarWeek' => (int)$monday->format('W'),
-        'cycleWeek' => cycle_week(cycle_day($monday, $start)),
-        'previous' => add_days($monday, -7),
-        'next' => add_days($monday, 7),
+        'isCurrentWeek' => $start == week_start(today()),
+        'previous' => add_days($start, -7),
+        'next' => add_days($start, 7),
     ], 'week');
+}
+
+/** @return list<DateTimeImmutable> the 7 days of the week starting on $start */
+function week_days(DateTimeImmutable $start): array
+{
+    return array_map(fn(int $i): DateTimeImmutable => add_days($start, $i), range(0, 6));
 }
 
 /** The ?date= parameter, or today. An invalid date redirects to $path without it. */
@@ -62,54 +66,133 @@ function date_param(string $path): DateTimeImmutable
     return (is_string($value) ? parse_date($value) : null) ?? redirect($path);
 }
 
-function plan_page(PDO $db): never
+/** *Nächste Woche planen* (FR-22 to FR-24). */
+function planning_page(PDO $db): never
 {
-    render('plan', 'Plan bearbeiten', [
-        'plan' => load_plan($db),
-        'meals' => list_meals($db),
-    ], 'plan');
+    $start = next_week_start();
+    $week = load_week($db, $start);
+    $entries = load_entries($db, add_days($start, -1), add_days($start, 7));
+    $resetWarnings = [];
+    foreach (week_days($start) as $day) {
+        foreach (array_keys(MEAL_TIMES) as $mealTime) {
+            if ($entries[$day->format('Y-m-d')][$mealTime]['changed']) {
+                $resetWarnings[$day->format('Y-m-d')][$mealTime] = reset_warning(reset_slots($db, false, $day, $mealTime), $day, $mealTime);
+            }
+        }
+    }
+    render('planning', 'Nächste Woche planen', [
+        'weekStart' => $start,
+        'week' => $week,
+        'days' => week_days($start),
+        'entries' => $entries,
+        'resetWarnings' => $resetWarnings,
+    ], 'planning');
 }
 
-function save_slot_action(PDO $db): never
+function next_week_start(): DateTimeImmutable
 {
-    [$cycleDay, $mealTime] = slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
+    return add_days(week_start(today()), 7);
+}
+
+/** Plans the next week from the other week blueprint (FR-22). */
+function choose_blueprint_action(PDO $db): never
+{
+    $blueprint = filter_var($_POST['blueprint'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2]]);
+    if ($blueprint === false) {
+        render_error(400, 'Ungültige Anfrage.');
+    }
+    if (choose_blueprint($db, next_week_start(), $blueprint)) {
+        set_flash("Woche $blueprint wird verwendet.", false);
+    } else {
+        set_flash(WEEK_PLANNED, true);
+    }
+    redirect('/planning');
+}
+
+/** Confirmation for *Planung abschliessen* (FR-24). */
+function complete_page(PDO $db): never
+{
+    $start = next_week_start();
+    $week = load_week($db, $start);
+    if ($week['planned']) {
+        redirect('/planning');
+    }
+    render('complete', 'Planung abschliessen', ['weekStart' => $start, 'week' => $week], 'planning');
+}
+
+function complete_action(PDO $db): never
+{
+    if (complete_week($db, next_week_start())) {
+        set_flash('Planung abgeschlossen.', false);
+    } else {
+        set_flash(WEEK_PLANNED, true);
+    }
+    redirect('/planning');
+}
+
+function week_blueprints_page(PDO $db): never
+{
+    render('week_blueprints', 'Wochenvorlagen bearbeiten', [
+        'blueprints' => load_blueprints($db),
+        'meals' => list_meals($db),
+    ], 'planning');
+}
+
+function save_blueprint_slot_action(PDO $db): never
+{
+    [$blueprint, $day, $mealTime] = blueprint_slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
     $type = $_POST['type'] ?? null;
     if (!in_array($type, ['meal', 'note'], true)) {
         render_error(400, 'Ungültige Anfrage.');
     }
-    $target = "slot-$cycleDay-$mealTime";
+    $target = "slot-$blueprint-$day-$mealTime";
     try {
         $text = clean_text($_POST['text'] ?? null);
         $mealId = null;
         if ($type === 'meal' && $text !== '') {
-            $mealId = find_meal_id($db, $text) ?? redirect('/meals/new?'
-                . http_build_query(['name' => $text, 'cycle_day' => $cycleDay, 'meal_time' => $mealTime]));
+            $mealId = find_meal_id($db, $text) ?? redirect('/meals/new?' . http_build_query(
+                ['name' => $text, 'blueprint' => $blueprint, 'day' => $day, 'meal_time' => $mealTime]));
         }
-        save_slot($db, $cycleDay, $mealTime, $mealId, $type === 'note' && $text !== '' ? $text : null);
+        save_blueprint_slot($db, $blueprint, $day, $mealTime, $mealId, $type === 'note' && $text !== '' ? $text : null);
         set_flash('Gespeichert.', false, $target);
     } catch (UserError $e) {
         set_flash($e->getMessage(), true, $target);
     }
-    redirect("/plan#$target");
+    redirect("/week-blueprints#$target");
 }
 
-/** @return ?array{int, string} [cycle_day, meal_time], or null if both are missing. Invalid values: 400. */
-function slot_param(array $input): ?array
+/** @return ?array{int, int, string} [blueprint, day, meal_time], or null if all are missing. Invalid values: 400. */
+function blueprint_slot_param(array $input): ?array
 {
-    if (!isset($input['cycle_day']) && !isset($input['meal_time'])) {
+    if (!isset($input['blueprint']) && !isset($input['day']) && !isset($input['meal_time'])) {
         return null;
     }
-    $cycleDay = filter_var($input['cycle_day'] ?? null, FILTER_VALIDATE_INT,
-        ['options' => ['min_range' => 1, 'max_range' => CYCLE_DAYS]]);
+    $blueprint = filter_var($input['blueprint'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2]]);
+    $day = filter_var($input['day'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 7]]);
     $mealTime = $input['meal_time'] ?? null;
-    if ($cycleDay === false || !in_array($mealTime, array_keys(MEAL_TIMES), true)) {
+    if ($blueprint === false || $day === false || !in_array($mealTime, array_keys(MEAL_TIMES), true)) {
         render_error(400, 'Ungültige Anfrage.');
     }
-    return [$cycleDay, $mealTime];
+    return [$blueprint, $day, $mealTime];
 }
 
-/** @return ?array{DateTimeImmutable, string} [date, meal_time], or null if both are missing. Invalid: 400; not swappable: back to the day view. */
-function swap_slot_param(array $input): ?array
+/** How a slot can be changed: true: swap (FR-17), false: planning (FR-23), null: not at all. */
+function slot_mode(PDO $db, DateTimeImmutable $date, string $mealTime): ?bool
+{
+    $next = next_week_start();
+    $nextWeekPlanned = load_week($db, $next)['planned'];
+    if (!$nextWeekPlanned && week_start($date) == $next) {
+        return false;
+    }
+    return is_swappable($date, $mealTime, $nextWeekPlanned) ? true : null;
+}
+
+/**
+ * @return ?array{DateTimeImmutable, string, bool} [date, meal_time, swap], or null if both are missing. Invalid: 400.
+ * $input['planning'] is set by planning forms. A slot that cannot be changed that way (e.g. past, or the week was
+ * planned in the meantime) goes back with a message. $swap: see save_date_slot().
+ */
+function date_slot_param(PDO $db, array $input): ?array
 {
     if (!isset($input['date']) && !isset($input['meal_time'])) {
         return null;
@@ -119,11 +202,13 @@ function swap_slot_param(array $input): ?array
     if ($date === null || !in_array($mealTime, array_keys(MEAL_TIMES), true)) {
         render_error(400, 'Ungültige Anfrage.');
     }
-    if (!is_swappable($date, $mealTime)) {
-        set_flash('Ändern geht nur von jetzt bis Freitag.', true);
-        redirect(day_url($date));
+    $planning = isset($input['planning']);
+    $swap = slot_mode($db, $date, $mealTime);
+    if ($swap === null || $swap === $planning) {
+        set_flash($planning ? WEEK_PLANNED : 'Diese Mahlzeit kannst du hier nicht ändern.', true);
+        redirect($planning ? '/planning' : day_url($date));
     }
-    return [$date, $mealTime];
+    return [$date, $mealTime, $swap];
 }
 
 function day_url(DateTimeImmutable $date): string
@@ -131,25 +216,33 @@ function day_url(DateTimeImmutable $date): string
     return '/?date=' . $date->format('Y-m-d');
 }
 
-function swap_url(string $path, DateTimeImmutable $date, string $mealTime): string
+/** URL of a swap page; for planning ($swap false) with planning=1 (see date_slot_param()). */
+function swap_url(string $path, DateTimeImmutable $date, string $mealTime, bool $swap = true): string
 {
-    return $path . '?' . http_build_query(['date' => $date->format('Y-m-d'), 'meal_time' => $mealTime]);
+    return $path . '?' . http_build_query(['date' => $date->format('Y-m-d'), 'meal_time' => $mealTime]
+        + ($swap ? [] : ['planning' => 1]));
 }
 
-/** Entries from today until Friday of the planning week; today's lunch may be past (is_swappable()). */
-function load_swappable_entries(PDO $db, array $config): array
+/** Where a change of a slot returns to: the day view (swap) or the *Planen* page. */
+function return_url(bool $swap, DateTimeImmutable $date): string
 {
-    return load_entries($db, today(), add_days(planning_week_start(today()), 6), parse_date($config['cycle_start_date']));
+    return $swap ? day_url($date) : '/planning';
+}
+
+/** Entries of the week of $date: exchanges and moves stay within one week (FR-17). */
+function load_week_entries(PDO $db, DateTimeImmutable $date): array
+{
+    return load_entries($db, week_start($date), add_days(week_start($date), 6));
 }
 
 /**
- * "Anderes Gericht": exchange with a meal until Friday, or a meal from the meal list.
- * "Gericht planen" (slot without a meal): move a meal from until Friday here, or a meal from the meal list (FR-17).
+ * "Anderes Gericht": exchange with a meal of the same week, or a meal from the meal list.
+ * "Gericht planen" (slot without a meal): move a meal of the same week here, or a meal from the meal list (FR-17, FR-23).
  */
-function swap_page(PDO $db, array $config): never
+function swap_page(PDO $db): never
 {
-    [$date, $mealTime] = swap_slot_param($_GET) ?? render_error(400, 'Ungültige Anfrage.');
-    $entries = load_swappable_entries($db, $config);
+    [$date, $mealTime, $swap] = date_slot_param($db, $_GET) ?? render_error(400, 'Ungültige Anfrage.');
+    $entries = load_week_entries($db, $date);
     $entry = $entries[$date->format('Y-m-d')][$mealTime];
     $partners = [];
     foreach ($entries as $key => $slots) {
@@ -174,105 +267,120 @@ function swap_page(PDO $db, array $config): never
     render('swap', $entry['meal'] === null ? 'Gericht planen' : 'Anderes Gericht', [
         'date' => $date,
         'mealTime' => $mealTime,
+        'swap' => $swap,
         'entry' => $entry,
         'partners' => $partners,
         'filters' => $filters,
         'meals' => $meals,
-        'warning' => unused_warning($entry),
+        'warning' => $swap ? unused_warning($entry) : null,
     ], '');
 }
 
-/** @return array{DateTimeImmutable, string} [date, meal_time] of the partner slot of an exchange or a move. */
-function partner_slot_param(): array
+/**
+ * [date, meal_time] of the partner slot of an exchange or a move, or null if it cannot be changed the same way
+ * ($swap) in the same week as $date (e.g. past in the meantime).
+ */
+function partner_slot_param(PDO $db, DateTimeImmutable $date, bool $swap): ?array
 {
-    return swap_slot_param(['date' => $_POST['partner_date'] ?? null, 'meal_time' => $_POST['partner_meal_time'] ?? null])
-        ?? render_error(400, 'Ungültige Anfrage.');
+    $partnerDate = is_string($_POST['partner_date'] ?? null) ? parse_date($_POST['partner_date']) : null;
+    $partnerMealTime = $_POST['partner_meal_time'] ?? null;
+    if ($partnerDate === null || !in_array($partnerMealTime, array_keys(MEAL_TIMES), true)) {
+        render_error(400, 'Ungültige Anfrage.');
+    }
+    return slot_mode($db, $partnerDate, $partnerMealTime) === $swap && week_start($partnerDate) == week_start($date)
+        ? [$partnerDate, $partnerMealTime] : null;
 }
 
-function swap_exchange_action(PDO $db, array $config): never
+function plan_changed(DateTimeImmutable $date, string $mealTime, bool $swap): never
 {
-    [$date, $mealTime] = swap_slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
-    [$partnerDate, $partnerMealTime] = partner_slot_param();
-    $entries = load_swappable_entries($db, $config);
+    set_flash('Der Plan hat sich inzwischen geändert. Wähle nochmals.', true);
+    redirect(swap_url('/swap', $date, $mealTime, $swap));
+}
+
+function swap_exchange_action(PDO $db): never
+{
+    [$date, $mealTime, $swap] = date_slot_param($db, $_POST) ?? render_error(400, 'Ungültige Anfrage.');
+    $partner = partner_slot_param($db, $date, $swap) ?? plan_changed($date, $mealTime, $swap);
+    [$partnerDate, $partnerMealTime] = $partner;
+    $entries = load_week_entries($db, $date);
     $mealId = $entries[$date->format('Y-m-d')][$mealTime]['meal_id'];
     $partnerMealId = $entries[$partnerDate->format('Y-m-d')][$partnerMealTime]['meal_id'];
     if ($mealId === null || $partnerMealId === null || $mealId === $partnerMealId) {
-        set_flash('Der Plan hat sich inzwischen geändert. Wähle nochmals.', true);
-        redirect(swap_url('/swap', $date, $mealTime));
+        plan_changed($date, $mealTime, $swap);
     }
-    exchange_meals($db, [$date, $mealTime, $mealId], [$partnerDate, $partnerMealTime, $partnerMealId]);
+    exchange_meals($db, $swap, [$date, $mealTime, $mealId], [$partnerDate, $partnerMealTime, $partnerMealId]);
     set_flash('Getauscht.', false);
-    redirect(day_url($date));
+    redirect(return_url($swap, $date));
 }
 
 /** Moves the meal of the partner slot to this slot, which has no meal (FR-17). */
-function swap_move_action(PDO $db, array $config): never
+function swap_move_action(PDO $db): never
 {
-    [$date, $mealTime] = swap_slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
-    [$partnerDate, $partnerMealTime] = partner_slot_param();
-    $entries = load_swappable_entries($db, $config);
+    [$date, $mealTime, $swap] = date_slot_param($db, $_POST) ?? render_error(400, 'Ungültige Anfrage.');
+    [$partnerDate, $partnerMealTime] = partner_slot_param($db, $date, $swap) ?? plan_changed($date, $mealTime, $swap);
+    $entries = load_week_entries($db, $date);
     $partnerMealId = $entries[$partnerDate->format('Y-m-d')][$partnerMealTime]['meal_id'];
     if ($entries[$date->format('Y-m-d')][$mealTime]['meal_id'] !== null || $partnerMealId === null) {
-        set_flash('Der Plan hat sich inzwischen geändert. Wähle nochmals.', true);
-        redirect(swap_url('/swap', $date, $mealTime));
+        plan_changed($date, $mealTime, $swap);
     }
-    move_meal($db, [$date, $mealTime], [$partnerDate, $partnerMealTime, $partnerMealId]);
+    move_meal($db, $swap, [$date, $mealTime], [$partnerDate, $partnerMealTime, $partnerMealId]);
     set_flash('Verschoben.', false);
-    redirect(day_url($date));
+    redirect(return_url($swap, $date));
 }
 
 function swap_meal_action(PDO $db): never
 {
-    [$date, $mealTime] = swap_slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
+    [$date, $mealTime, $swap] = date_slot_param($db, $_POST) ?? render_error(400, 'Ungültige Anfrage.');
     $mealId = filter_var($_POST['meal_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if ($mealId === false) {
         render_error(400, 'Ungültige Anfrage.');
     }
     try {
-        save_swap($db, $date, $mealTime, $mealId, null);
+        save_date_slot($db, $swap, $date, $mealTime, $mealId, null);
         set_flash('Getauscht.', false);
     } catch (UserError $e) {
         set_flash($e->getMessage(), true);
     }
-    redirect(day_url($date));
+    redirect(return_url($swap, $date));
 }
 
 /** "Auslassen" with an optional note (FR-18). */
-function skip_page(PDO $db, array $config): never
+function skip_page(PDO $db): never
 {
-    [$date, $mealTime] = swap_slot_param($_GET) ?? render_error(400, 'Ungültige Anfrage.');
-    $entry = load_swappable_entries($db, $config)[$date->format('Y-m-d')][$mealTime];
+    [$date, $mealTime, $swap] = date_slot_param($db, $_GET) ?? render_error(400, 'Ungültige Anfrage.');
+    $entry = load_week_entries($db, $date)[$date->format('Y-m-d')][$mealTime];
     if ($entry['meal'] === null) {
-        redirect(day_url($date));
+        redirect(return_url($swap, $date));
     }
     render('skip', 'Auslassen', [
         'date' => $date,
         'mealTime' => $mealTime,
+        'swap' => $swap,
         'entry' => $entry,
-        'warning' => unused_warning($entry),
+        'warning' => $swap ? unused_warning($entry) : null,
     ], '');
 }
 
 function skip_action(PDO $db): never
 {
-    [$date, $mealTime] = swap_slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
+    [$date, $mealTime, $swap] = date_slot_param($db, $_POST) ?? render_error(400, 'Ungültige Anfrage.');
     try {
         $note = clean_text($_POST['note'] ?? null);
     } catch (UserError $e) {
         set_flash($e->getMessage(), true);
-        redirect(swap_url('/swap/skip', $date, $mealTime));
+        redirect(swap_url('/swap/skip', $date, $mealTime, $swap));
     }
-    save_swap($db, $date, $mealTime, null, $note === '' ? null : $note);
+    save_date_slot($db, $swap, $date, $mealTime, null, $note === '' ? null : $note);
     set_flash('Ausgelassen.', false);
-    redirect(day_url($date));
+    redirect(return_url($swap, $date));
 }
 
-function reset_swap_action(PDO $db): never
+function reset_action(PDO $db): never
 {
-    [$date, $mealTime] = swap_slot_param($_POST) ?? render_error(400, 'Ungültige Anfrage.');
-    reset_swap($db, $date, $mealTime);
+    [$date, $mealTime, $swap] = date_slot_param($db, $_POST) ?? render_error(400, 'Ungültige Anfrage.');
+    reset_date_slot($db, $swap, $date, $mealTime);
     set_flash('Zurückgesetzt.', false);
-    redirect(day_url($date));
+    redirect(return_url($swap, $date));
 }
 
 function meals_page(PDO $db): never
@@ -281,19 +389,19 @@ function meals_page(PDO $db): never
 }
 
 /** Optional ?name=, and the slot to fill after saving (see new_meal_target()). */
-function new_meal_page(): never
+function new_meal_page(PDO $db): never
 {
     try {
         $name = clean_text($_GET['name'] ?? '');
     } catch (UserError) {
         $name = '';
     }
-    render_meal_form(['name' => $name], null, new_meal_target($_GET));
+    render_meal_form(['name' => $name], null, new_meal_target($db, $_GET));
 }
 
 function new_meal_action(PDO $db): never
 {
-    $target = new_meal_target($_POST);
+    $target = new_meal_target($db, $_POST);
     $meal = meal_form_input();
     try {
         $meal['name'] = clean_text($meal['name']);
@@ -309,39 +417,41 @@ function new_meal_action(PDO $db): never
 }
 
 /**
- * Slot to fill after saving a new meal: from the plan editor (cycle_day, meal_time) or from "Anderes Gericht" (date, meal_time).
+ * Slot to fill after saving a new meal: from the week blueprint editor (blueprint, day, meal_time) or from
+ * "Anderes Gericht" (date, meal_time, and planning for planning).
  * @return ?array{fields: array, text: string, cancel: string, fill: callable(PDO, int): never}
  */
-function new_meal_target(array $input): ?array
+function new_meal_target(PDO $db, array $input): ?array
 {
-    $swapSlot = isset($input['date']) ? swap_slot_param($input) : null;
-    if ($swapSlot !== null) {
-        [$date, $mealTime] = $swapSlot;
+    $dateSlot = isset($input['date']) ? date_slot_param($db, $input) : null;
+    if ($dateSlot !== null) {
+        [$date, $mealTime, $swap] = $dateSlot;
         return [
-            'fields' => ['date' => $date->format('Y-m-d'), 'meal_time' => $mealTime],
+            'fields' => ['date' => $date->format('Y-m-d'), 'meal_time' => $mealTime] + ($swap ? [] : ['planning' => 1]),
             'text' => 'Nach dem Speichern wird es eingetragen: ' . format_short_date($date) . ', ' . MEAL_TIMES[$mealTime] . '.',
-            'cancel' => swap_url('/swap', $date, $mealTime),
-            'fill' => function (PDO $db, int $id) use ($date, $mealTime): never {
-                save_swap($db, $date, $mealTime, $id, null);
+            'cancel' => swap_url('/swap', $date, $mealTime, $swap),
+            'fill' => function (PDO $db, int $id) use ($date, $mealTime, $swap): never {
+                save_date_slot($db, $swap, $date, $mealTime, $id, null);
                 set_flash('Getauscht.', false);
-                redirect(day_url($date));
+                redirect(return_url($swap, $date));
             },
         ];
     }
-    $slot = slot_param($input);
+    $slot = blueprint_slot_param($input);
     if ($slot === null) {
         return null;
     }
-    [$cycleDay, $mealTime] = $slot;
+    [$blueprint, $day, $mealTime] = $slot;
+    $target = "slot-$blueprint-$day-$mealTime";
     return [
-        'fields' => ['cycle_day' => $cycleDay, 'meal_time' => $mealTime],
+        'fields' => ['blueprint' => $blueprint, 'day' => $day, 'meal_time' => $mealTime],
         'text' => 'Noch nicht in der Liste. Nach dem Speichern wird es eingetragen: '
-            . WEEKDAYS[($cycleDay - 1) % 7 + 1] . ' (Woche ' . cycle_week($cycleDay) . '), ' . MEAL_TIMES[$mealTime] . '.',
-        'cancel' => "/plan#slot-$cycleDay-$mealTime",
-        'fill' => function (PDO $db, int $id) use ($cycleDay, $mealTime): never {
-            save_slot($db, $cycleDay, $mealTime, $id, null);
-            set_flash('Gespeichert.', false, "slot-$cycleDay-$mealTime");
-            redirect("/plan#slot-$cycleDay-$mealTime");
+            . week_day_name($day) . " (Woche $blueprint), " . MEAL_TIMES[$mealTime] . '.',
+        'cancel' => "/week-blueprints#$target",
+        'fill' => function (PDO $db, int $id) use ($blueprint, $day, $mealTime, $target): never {
+            save_blueprint_slot($db, $blueprint, $day, $mealTime, $id, null);
+            set_flash('Gespeichert.', false, $target);
+            redirect("/week-blueprints#$target");
         },
     ];
 }

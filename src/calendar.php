@@ -5,7 +5,8 @@ declare(strict_types=1);
 // Dates are calendar days at midnight UTC, so day arithmetic ignores DST. Only "today" uses Europe/Zurich.
 
 const TIME_ZONE = 'Europe/Zurich';
-const CYCLE_DAYS = 14;
+/** First day of a week as ISO weekday: Saturday (docs/decisions.md D-11). Changing it needs a migration of week and date_slot. */
+const WEEK_START = 6;
 /** Days the uncooked ingredients keep after delivery: upper end of the shelf_life range; long: all week. */
 const SHELF_LIFE_DAYS = ['short' => 2, 'medium' => 5];
 const WEEKDAYS = [1 => 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
@@ -35,21 +36,27 @@ function add_days(DateTimeImmutable $date, int $days): DateTimeImmutable
     return $date->modify(sprintf('%+d days', $days));
 }
 
-function monday_of(DateTimeImmutable $date): DateTimeImmutable
+/** First day of the week of $date (WEEK_START). */
+function week_start(DateTimeImmutable $date): DateTimeImmutable
 {
-    return add_days($date, 1 - (int)$date->format('N'));
+    return add_days($date, 1 - week_day($date));
 }
 
-/** 1–14, see docs/architecture.md#cycle-calculation. */
-function cycle_day(DateTimeImmutable $date, DateTimeImmutable $cycleStart): int
+/** Day within its week, 1–7 (1 = WEEK_START). */
+function week_day(DateTimeImmutable $date): int
 {
-    $days = intdiv($date->getTimestamp() - $cycleStart->getTimestamp(), 86400);
-    return (($days % CYCLE_DAYS) + CYCLE_DAYS) % CYCLE_DAYS + 1;
+    return ((int)$date->format('N') - WEEK_START + 7) % 7 + 1;
 }
 
-function cycle_week(int $cycleDay): int
+/** Name of day 1–7 of a week, e.g. 1: "Samstag". */
+function week_day_name(int $day): string
 {
-    return $cycleDay <= 7 ? 1 : 2;
+    return WEEKDAYS[(WEEK_START + $day - 2) % 7 + 1];
+}
+
+function weeks_between(DateTimeImmutable $from, DateTimeImmutable $to): int
+{
+    return intdiv($to->getTimestamp() - $from->getTimestamp(), 7 * 86400);
 }
 
 /** @return array{DateTimeImmutable, string} [date, meal_time] of the slot before. */
@@ -64,12 +71,6 @@ function next_slot(DateTimeImmutable $date, string $mealTime): array
     return $mealTime === 'lunch' ? [$date, 'dinner'] : [add_days($date, 1), 'lunch'];
 }
 
-/** Saturday on which the planning week of $date starts (docs/requirements.md#swap). */
-function planning_week_start(DateTimeImmutable $date): DateTimeImmutable
-{
-    return add_days($date, -(((int)$date->format('N') + 1) % 7));
-}
-
 /** Whether a slot is over: an earlier date, or today's lunch from LUNCH_END on. */
 function is_past(DateTimeImmutable $date, string $mealTime): bool
 {
@@ -77,16 +78,16 @@ function is_past(DateTimeImmutable $date, string $mealTime): bool
     return $date < $today || ($date == $today && $mealTime === 'lunch' && now()->format('H:i') >= LUNCH_END);
 }
 
-/** Whether a slot can be swapped: not past, until Friday of the current planning week. */
-function is_swappable(DateTimeImmutable $date, string $mealTime): bool
+/** Whether a slot can be swapped: not past, in the current week, or in the next week once it is planned (FR-17). */
+function is_swappable(DateTimeImmutable $date, string $mealTime, bool $nextWeekPlanned): bool
 {
-    return !is_past($date, $mealTime) && $date <= add_days(planning_week_start(today()), 6);
+    return !is_past($date, $mealTime) && $date < add_days(week_start(today()), $nextWeekPlanned ? 14 : 7);
 }
 
-/** Last day the uncooked ingredients keep, counted from the start of the planning week; null: all week (FR-20). */
-function fresh_until(string $shelfLife, DateTimeImmutable $planningWeekStart): ?DateTimeImmutable
+/** Last day the uncooked ingredients keep, counted from the start of the week; null: all week (FR-20). */
+function fresh_until(string $shelfLife, DateTimeImmutable $weekStart): ?DateTimeImmutable
 {
-    return isset(SHELF_LIFE_DAYS[$shelfLife]) ? add_days($planningWeekStart, SHELF_LIFE_DAYS[$shelfLife]) : null;
+    return isset(SHELF_LIFE_DAYS[$shelfLife]) ? add_days($weekStart, SHELF_LIFE_DAYS[$shelfLife]) : null;
 }
 
 /** e.g. "Samstag, 7. November 2026" */
@@ -99,6 +100,13 @@ function format_long_date(DateTimeImmutable $date): string
 function format_short_date(DateTimeImmutable $date): string
 {
     return weekday($date) . ', ' . $date->format('j') . '. ' . MONTHS[(int)$date->format('n')];
+}
+
+/** e.g. "14.–20.11.", or "28.11.–4.12." across months */
+function format_week_dates(DateTimeImmutable $weekStart): string
+{
+    $end = add_days($weekStart, 6);
+    return $weekStart->format($weekStart->format('n') === $end->format('n') ? 'j.' : 'j.n.') . '–' . $end->format('j.n.');
 }
 
 /** e.g. "7. November 2026" */

@@ -17,36 +17,46 @@ CREATE TABLE meal (
     vegetable_level TEXT NOT NULL CHECK (vegetable_level IN ('main_component', 'side_dish', 'raw_veggies_needed'))
 );
 
-CREATE TABLE plan_slot (
-    cycle_day INTEGER NOT NULL CHECK (cycle_day BETWEEN 1 AND 14),
+-- Woche 1 and Woche 2 (FR-1). day: 1 = first day of the week (WEEK_START, Saturday).
+CREATE TABLE blueprint_slot (
+    blueprint INTEGER NOT NULL CHECK (blueprint IN (1, 2)),
+    day       INTEGER NOT NULL CHECK (day BETWEEN 1 AND 7),
     meal_time TEXT    NOT NULL CHECK (meal_time IN ('lunch', 'dinner')),
     meal_id   INTEGER REFERENCES meal (id) ON DELETE RESTRICT,
     note      TEXT CHECK (length(note) BETWEEN 1 AND 100),
-    PRIMARY KEY (cycle_day, meal_time),
+    PRIMARY KEY (blueprint, day, meal_time),
     CHECK ((meal_id IS NULL) <> (note IS NULL))
 );
 
-CREATE INDEX plan_slot_meal_id ON plan_slot (meal_id);
+CREATE INDEX blueprint_slot_meal_id ON blueprint_slot (meal_id);
 
--- One-time change of a date's slot, see docs/architecture.md#swap. Neither meal_id nor note: skipped.
--- partner_*: the other slot of an exchange or a move; without meal_id: the meal was moved away.
--- moved: the meal was moved here.
-CREATE TABLE swap (
-    date              TEXT NOT NULL CHECK (date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
-    meal_time         TEXT NOT NULL CHECK (meal_time IN ('lunch', 'dinner')),
+-- A planned week, or the next week while planning it from the other week blueprint. See docs/architecture.md#planning-and-swap.
+CREATE TABLE week (
+    start_date TEXT    PRIMARY KEY CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    blueprint  INTEGER NOT NULL CHECK (blueprint IN (1, 2)),
+    planned    INTEGER NOT NULL CHECK (planned IN (0, 1))
+);
+
+-- The slot of a date: swap = 0 for a planned week or the planning of the next week, 1 for a swap.
+-- Neither meal_id nor note: empty or skipped. partner_*: the other slot of an exchange or a move; without meal_id: the
+-- meal was moved away. moved: the meal was moved here.
+CREATE TABLE date_slot (
+    date              TEXT    NOT NULL CHECK (date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    meal_time         TEXT    NOT NULL CHECK (meal_time IN ('lunch', 'dinner')),
+    swap              INTEGER NOT NULL CHECK (swap IN (0, 1)),
     meal_id           INTEGER REFERENCES meal (id) ON DELETE RESTRICT,
     note              TEXT CHECK (length(note) BETWEEN 1 AND 100),
     partner_date      TEXT,
     partner_meal_time TEXT CHECK (partner_meal_time IN ('lunch', 'dinner')),
     moved             INTEGER NOT NULL DEFAULT 0 CHECK (moved IN (0, 1)),
-    PRIMARY KEY (date, meal_time),
+    PRIMARY KEY (date, meal_time, swap),
     CHECK (meal_id IS NULL OR note IS NULL),
     CHECK ((partner_date IS NULL) = (partner_meal_time IS NULL)),
     CHECK (partner_date IS NULL OR note IS NULL),
     CHECK (moved = 0 OR (meal_id IS NOT NULL AND partner_date IS NOT NULL))
 );
 
-CREATE INDEX swap_meal_id ON swap (meal_id);
+CREATE INDEX date_slot_meal_id ON date_slot (meal_id);
 
 CREATE TABLE login_failure (
     ip        TEXT    NOT NULL,
