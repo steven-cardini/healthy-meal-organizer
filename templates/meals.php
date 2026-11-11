@@ -12,7 +12,10 @@
                 <span>
                     <span class="meal-list-head">
                         <strong><?= e($meal['name']) ?></strong>
-                        <small class="uses<?= $meal['uses'] === 0 ? ' unused' : '' ?>"><?= $meal['uses'] === 0 ? 'Nicht in Vorlagen' : e($meal['uses']) . '× in Vorlagen' ?></small>
+                        <span class="meal-list-badges">
+                            <?php if ($meal['ingredients'] === 0): ?><small class="uses unused">Keine Zutaten</small><?php endif ?>
+                            <small class="uses<?= $meal['uses'] === 0 ? ' unused' : '' ?>"><?= $meal['uses'] === 0 ? 'Nicht in Vorlagen' : e($meal['uses']) . '× in Vorlagen' ?></small>
+                        </span>
                     </span>
                     <?= tags_html($meal) ?>
                 </span>

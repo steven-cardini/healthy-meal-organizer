@@ -89,3 +89,37 @@ window.addEventListener('pagereveal', (event) => {
         event.viewTransition.skipTransition();
     }
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Meal form: "+ Zutat" adds an empty ingredient row (docs/decisions.md D-47).
+    const addIngredient = document.querySelector('.add-ingredient');
+    if (addIngredient) {
+        addIngredient.hidden = false;
+        addIngredient.addEventListener('click', () => {
+            const rows = document.querySelector('.ingredient-rows');
+            rows.append(document.getElementById('ingredient-row').content.cloneNode(true));
+            rows.lastElementChild.querySelector('input').focus();
+        });
+    }
+
+    // Grocery list: ticks are kept per week while the app is open (D-49).
+    const groceryList = document.querySelector('.grocery-list');
+    if (groceryList) {
+        const key = `ticks-${groceryList.dataset.week}`;
+        let ticks = [];
+        try {
+            ticks = JSON.parse(sessionStorage.getItem(key)) ?? [];
+        } catch {
+        }
+        for (const box of groceryList.querySelectorAll('input[type="checkbox"]')) {
+            box.checked = ticks.includes(box.value);
+        }
+        groceryList.addEventListener('change', () => {
+            const checked = [...groceryList.querySelectorAll('input:checked')].map((box) => box.value);
+            try {
+                sessionStorage.setItem(key, JSON.stringify(checked));
+            } catch {
+            }
+        });
+    }
+});

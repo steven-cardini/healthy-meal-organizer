@@ -47,10 +47,10 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Planned week        | –                  | `week.planned`       | A week whose planning is complete, or that has started. Its slots no longer follow the week blueprints. | 4 |
 | Complete planning   | Planung abschliessen | `complete_week`    | Make the next week a planned week. Cannot be undone. | 4 |
 | Planning open       | Planung offen      | –                    | Notice in the day and week view for a week not planned yet. | 4 |
-| Recipe              | Rezept             | `recipe`             | Ingredients and preparation steps of a meal. | 5 |
-| Ingredient          | Zutat              | `ingredient`         | Food item with quantity and unit in a recipe. | 5 |
-| Servings            | Portionen          | `servings`           | Number of portions a recipe yields. | 5 |
-| Shopping list       | Einkaufsliste      | `shopping_list`      | Ingredients needed for a planned week, combined. | 5 |
+| Recipe link         | Rezept             | `recipe_url`         | Optional link to a recipe of a meal on the web. | 5 |
+| Ingredient          | Zutat              | `ingredient`         | Food item needed for a meal, without quantity, e.g. "Hackfleisch". | 5 |
+| Ingredient category | Kategorie          | `category`           | Group of an ingredient on the grocery list, e.g. *Früchte & Gemüse*. One per ingredient name. | 5 |
+| Grocery list        | Einkaufsliste      | `grocery_list`       | Ingredients of the meals of a planned week, each once, grouped by category. | 5 |
 | Health balance      | Ausgewogenheit     | `health_balance`     | How well meals match dietary recommendations. | 6 |
 | Food pyramid        | Lebensmittelpyramide | `food_pyramid`     | Swiss dietary recommendation (SGE); in Germany often called "Ernährungspyramide". | 6 |
 | Food group          | Lebensmittelgruppe | `food_group`         | Category of the food pyramid, e.g. vegetables, protein. | 6 |

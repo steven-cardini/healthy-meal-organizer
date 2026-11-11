@@ -4,7 +4,7 @@ Terms: see [glossary.md](glossary.md). Decisions: see [decisions.md](decisions.m
 
 ## Vision
 
-A web app (installable as PWA) for one household that shows what is cooked today and this week. Each week is planned from two alternating week blueprints.
+A web app (installable as PWA) for one household that shows what is cooked today and this week, and what to buy for it. Each week is planned from two alternating week blueprints.
 
 ## Users
 
@@ -18,11 +18,11 @@ One household. All members share one password and have the same rights (view and
 | 2       | Meal tags (protein source, prep time, leftovers, …) and hints in the day and week view    |
 | 3       | Swap on the spot: change or skip a meal on a date of the current week                     |
 | 4       | Planning: plan the next week from its week blueprint before the groceries are ordered     |
-| 5       | Recipes, shopping list                                                                    |
+| 5       | Ingredients, recipe link, grocery list                                                    |
 | 6       | Health balance based on scientific recommendations (e.g. Swiss food pyramid), using the meal tags |
 | Later   | Nice to have, low priority: (a) while swiping, the previous / next day or week is already shown next to the content (loaded in the background), so the switch needs no wait; (b) more week blueprints (e.g. Woche 3 and 4), minimum and maximum still open; (c) when skipping a meal whose ingredients keep only briefly, suggest moving it to a later slot whose meal keeps longer and skipping that one instead |
 
-Phases 5, 6 and "Later" are not specified yet. Earlier phases must not block them (see [architecture.md](architecture.md#extension-points)).
+Phase 6 and "Later" are not specified yet. Earlier phases must not block them (see [architecture.md](architecture.md#extension-points)).
 
 ## Functional requirements (MVP)
 
@@ -42,7 +42,7 @@ Phases 5, 6 and "Later" are not specified yet. Earlier phases must not block the
 
 - **FR-7** Week blueprint editor (*Wochenvorlagen bearbeiten*, linked from the *Planen* page, FR-22): shows all 28 slots of both week blueprints. Each slot can be set to a meal, a note, or empty (empty text field).
 - **FR-8** When entering a meal, existing meals are suggested. A name not in the meal list opens the new meal form (FR-9) with the name filled in; after saving, the meal is entered in the slot.
-- **FR-9** Meal list: shows all meals with their number of uses in the week blueprints, and a button for a new meal. A meal opens a form to change its name and tags (FR-13) or to delete it. A meal in use cannot be deleted (FR-21). Renaming a meal to the name of another meal shows an error.
+- **FR-9** Meal list: shows all meals with their number of uses in the week blueprints, and a button for a new meal. A meal opens a form to change its name, tags (FR-13), ingredients (FR-27) and recipe link (FR-29), or to delete it. A meal in use cannot be deleted (FR-21). Renaming a meal to the name of another meal shows an error.
 - **FR-10** Meal names are unique (case-insensitive).
 
 ### Access
@@ -108,6 +108,23 @@ The groceries for a week are ordered on Wednesday or Thursday before it. Before 
 - **FR-25** A planned week keeps what was planned: later changes to the week blueprints do not affect it. A week not planned by its Saturday becomes a planned week with its planning so far. Only the first week the app is used keeps following the week blueprints, as they are usually entered during that week.
 - **FR-26** The day and week view show *Planung offen* at the top for a coming week not planned yet, for the next week with a link to *Planen*. Its meals are not shown in grey (grey means past, FR-4).
 
+## Functional requirements (phase 5)
+
+### Ingredients and recipe link
+
+- **FR-27** A meal has zero or more ingredients, each only a name (no quantity, e.g. *Hackfleisch*). In the meal form, each ingredient is a row with name and category; *+ Zutat* adds a row, an empty name removes it. Names already used are suggested. Ingredient names are compared case-insensitively; a name entered twice for a meal counts once.
+- **FR-28** Each ingredient name has one category, which applies to all meals using it. It is chosen when the name is used for the first time; for a known name it can stay empty. Changing it changes it for all meals. Categories, in this order: *Früchte & Gemüse*, *Fleisch & Fisch*, *Milchprodukte, Eier & frische Fertiggerichte*, *Brot & Backwaren*, *Pasta, Würzmittel & Konserven*, *Snacks & Süssigkeiten*, *Tiefkühlprodukte*, *Getränke, Kaffee & Tee*, *Wein, Bier & Spirituosen*, *Sonstige*.
+- **FR-29** A meal has an optional recipe link (an `http` or `https` URL). The day view shows it as *Rezept*, opening in a new tab.
+- **FR-30** The meal list marks meals without ingredients (*Keine Zutaten*).
+
+### Grocery list
+
+The groceries for a week are ordered after planning it (FR-24), from the grocery list.
+
+- **FR-31** *Einkaufsliste* of a planned week (FR-24, FR-25), linked from the week view of a planned week and from the *Planen* page once the next week is planned. It combines the ingredients of all meals cooked in that week (FR-16: including swaps, without skipped slots and notes), each ingredient once, grouped by category in the order of FR-28 and sorted alphabetically. Below each ingredient, the meals using it, with *2×* if a meal is cooked in two slots (*3×*, …).
+- **FR-32** Ingredients can be ticked off. Ticks belong to their week and are kept while the app is open, also on reload; closing the app clears them.
+- **FR-33** Below the list, *Ohne Zutaten:* names the meals of the week without ingredients.
+
 ## Non-functional requirements
 
 - **NFR-1 Language:** UI in German (Swiss spelling without "ß", informal "du"). Code and docs in English. Terms are mapped in [glossary.md](glossary.md).
@@ -118,6 +135,6 @@ The groceries for a week are ordered on Wednesday or Thursday before it. Before 
 - **NFR-6 Concurrency:** if two people edit at the same time, the last save wins.
 - **NFR-7 Time:** time zone Europe/Zurich. Weeks run Saturday to Friday, as the groceries arrive on Saturday.
 
-## Out of scope (phases 1–4)
+## Out of scope (phases 1–5)
 
-Recipes, shopping list, health balance, a "freezable" tag, individual user accounts, multiple households, offline data, email, notifications.
+Recipes stored in the app (other than a link), ingredient quantities, health balance, a "freezable" tag, individual user accounts, multiple households, offline data, email, notifications.

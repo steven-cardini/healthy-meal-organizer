@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 $cancel = $target['cancel'] ?? ($id === null ? '/meals' : "/meals#meal-$id");
+// Entered ingredients and one empty row (FR-27, docs/decisions.md D-47).
+$ingredientRows = array_filter($meal['ingredients'], fn(array $ingredient): bool => $ingredient['name'] !== '');
+$ingredientRows[] = ['name' => '', 'category' => ''];
 ?>
 <hgroup>
     <h1><?= $id === null ? 'Neues Gericht' : 'Gericht bearbeiten' ?></h1>
@@ -27,6 +30,11 @@ $cancel = $target['cancel'] ?? ($id === null ? '/meals' : "/meals#meal-$id");
         <input type="text" name="name" value="<?= e($meal['name']) ?>" maxlength="<?= MAX_TEXT_LENGTH ?>" required
             <?= $meal['name'] === '' ? 'autofocus' : '' ?>>
     </label>
+    <label>
+        Rezept <small class="muted">Link, optional</small>
+        <input type="url" name="recipe_url" value="<?= e($meal['recipe_url'] ?? '') ?>" maxlength="<?= MAX_URL_LENGTH ?>"
+            placeholder="https://…" inputmode="url">
+    </label>
     <?php foreach (MEAL_TAGS as $tag => $definition): ?>
         <fieldset class="tag">
             <legend>
@@ -42,6 +50,24 @@ $cancel = $target['cancel'] ?? ($id === null ? '/meals' : "/meals#meal-$id");
             <?php endforeach ?>
         </fieldset>
     <?php endforeach ?>
+    <fieldset class="ingredients">
+        <legend>Zutaten <small class="muted">ohne Menge; Kategorie nur bei neuen Zutaten nötig</small></legend>
+        <div class="ingredient-rows">
+            <?php foreach ($ingredientRows as $ingredient): ?>
+                <?php require __DIR__ . '/ingredient_row.php' ?>
+            <?php endforeach ?>
+        </div>
+        <template id="ingredient-row">
+            <?php $ingredient = ['name' => '', 'category' => ''] ?>
+            <?php require __DIR__ . '/ingredient_row.php' ?>
+        </template>
+        <button type="button" class="secondary outline add-ingredient" hidden>+ Zutat</button>
+    </fieldset>
+    <datalist id="ingredient-names">
+        <?php foreach ($ingredientNames as $ingredientName): ?>
+            <option value="<?= e($ingredientName) ?>"></option>
+        <?php endforeach ?>
+    </datalist>
     <div class="actions">
         <button type="submit">Speichern</button>
         <a href="<?= e($cancel) ?>" role="button" class="secondary outline">Abbrechen</a>

@@ -50,6 +50,27 @@ function week_page(PDO $db): never
     ], 'week');
 }
 
+/** *Einkaufsliste* of a planned week (FR-31 to FR-33). */
+function grocery_list_page(PDO $db): never
+{
+    $start = week_start(date_param('/grocery-list'));
+    $week = load_week($db, $start);
+    if (!$week['planned']) {
+        set_flash('Die Einkaufsliste gibt es, sobald die Woche geplant ist.', true);
+        redirect('/planning');
+    }
+    render('grocery_list', 'Einkaufsliste', [
+        'weekStart' => $start,
+        'week' => $week,
+        'list' => grocery_list(load_entries($db, $start, add_days($start, 6)), load_ingredients($db)),
+    ], 'week');
+}
+
+function grocery_list_url(DateTimeImmutable $weekStart): string
+{
+    return '/grocery-list?date=' . $weekStart->format('Y-m-d');
+}
+
 /** @return list<DateTimeImmutable> the 7 days of the week starting on $start */
 function week_days(DateTimeImmutable $start): array
 {
@@ -396,7 +417,7 @@ function new_meal_page(PDO $db): never
     } catch (UserError) {
         $name = '';
     }
-    render_meal_form(['name' => $name], null, new_meal_target($db, $_GET));
+    render_meal_form($db, ['name' => $name, 'recipe_url' => '', 'ingredients' => []], null, new_meal_target($db, $_GET));
 }
 
 function new_meal_action(PDO $db): never
@@ -405,9 +426,9 @@ function new_meal_action(PDO $db): never
     $meal = meal_form_input();
     try {
         $meal['name'] = clean_text($meal['name']);
-        $id = create_meal($db, $meal);
+        $id = in_transaction($db, fn(): int => create_meal($db, $meal));
     } catch (UserError $e) {
-        render_meal_form($meal, null, $target, 0, $e->getMessage());
+        render_meal_form($db, $meal, null, $target, 0, $e->getMessage());
     }
     if ($target !== null) {
         $target['fill']($db, $id);
@@ -460,7 +481,7 @@ function edit_meal_page(PDO $db): never
 {
     $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     $meal = ($id === false ? null : find_meal($db, $id)) ?? render_error(404, 'Dieses Gericht gibt es nicht.');
-    render_meal_form($meal, $id, null, $meal['uses']);
+    render_meal_form($db, $meal, $id, null, $meal['uses']);
 }
 
 function edit_meal_action(PDO $db): never
@@ -469,9 +490,9 @@ function edit_meal_action(PDO $db): never
     $meal = meal_form_input();
     try {
         $meal['name'] = clean_text($meal['name']);
-        update_meal($db, $id, $meal);
+        in_transaction($db, fn() => update_meal($db, $id, $meal));
     } catch (UserError $e) {
-        render_meal_form($meal, $id, null, find_meal($db, $id)['uses'] ?? 0, $e->getMessage());
+        render_meal_form($db, $meal, $id, null, find_meal($db, $id)['uses'] ?? 0, $e->getMessage());
     }
     set_flash('Gespeichert.', false, "meal-$id");
     redirect("/meals#meal-$id");
@@ -491,19 +512,29 @@ function delete_meal_action(PDO $db): never
 }
 
 /** Errors are shown in the form with the entered values (no redirect, see docs/decisions.md D-22). $target: see new_meal_target(). */
-function render_meal_form(array $meal, ?int $id, ?array $target, int $uses = 0, ?string $error = null): never
+function render_meal_form(PDO $db, array $meal, ?int $id, ?array $target, int $uses = 0, ?string $error = null): never
 {
     render('meal', $id === null ? 'Neues Gericht' : 'Gericht bearbeiten',
-        ['meal' => $meal, 'id' => $id, 'target' => $target, 'uses' => $uses, 'error' => $error],
+        ['meal' => $meal, 'id' => $id, 'target' => $target, 'uses' => $uses, 'error' => $error,
+            'ingredientNames' => ingredient_names($db)],
         'meals', $error === null ? 200 : 422);
 }
 
-/** @return array{name: string, ...} name and tags as posted; unchecked by design (see execute_meal_write()). */
+/**
+ * @return array{name: string, recipe_url: string, ingredients: list<array{name: string, category: string}>, ...}
+ * as posted; unchecked by design (see meal_params()).
+ */
 function meal_form_input(): array
 {
-    $meal = ['name' => is_string($_POST['name'] ?? null) ? $_POST['name'] : ''];
+    $string = fn(mixed $value): string => is_string($value) ? $value : '';
+    $meal = ['name' => $string($_POST['name'] ?? null), 'recipe_url' => $string($_POST['recipe_url'] ?? null), 'ingredients' => []];
     foreach (array_keys(MEAL_TAGS) as $tag) {
         $meal[$tag] = is_string($_POST[$tag] ?? null) ? $_POST[$tag] : null;
+    }
+    $names = is_array($_POST['ingredient_name'] ?? null) ? $_POST['ingredient_name'] : [];
+    $categories = is_array($_POST['ingredient_category'] ?? null) ? $_POST['ingredient_category'] : [];
+    foreach ($names as $i => $name) {
+        $meal['ingredients'][] = ['name' => $string($name), 'category' => $string($categories[$i] ?? null)];
     }
     return $meal;
 }

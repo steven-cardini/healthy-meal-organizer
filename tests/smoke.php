@@ -108,16 +108,18 @@ check('meal with an unknown tag value is rejected',
     throws(fn() => create_meal($db, meal_input('Rösti', ['heaviness' => 'x'])), UserError::class));
 check('meal without a name is rejected', throws(fn() => create_meal($db, meal_input('')), UserError::class));
 check('database rejects unknown tag values', throws(fn() => $db->exec("INSERT INTO meal VALUES
-    (99, 'x', 'x', 'beef_pork', 'light', 'quick', 'high_flyer', 'short', 'eat_fresh', 'main_component')"), PDOException::class));
+    (99, 'x', 'x', 'beef_pork', 'light', 'quick', 'high_flyer', 'short', 'eat_fresh', 'main_component', NULL)"), PDOException::class));
 preg_match_all('/\((\w+) IN\s*\(([^)]*)\)/', file_get_contents(ROOT_DIR . '/db/schema.sql'), $match, PREG_SET_ORDER);
 $schemaTags = [];
 foreach ($match as [, $column, $values]) {
     $schemaTags[$column] = preg_match_all("/'(\w+)'/", $values, $valueMatch) ? $valueMatch[1] : [];
 }
+$schemaCategories = $schemaTags['category'];
 unset($schemaTags['blueprint'], $schemaTags['meal_time'], $schemaTags['planned'], $schemaTags['swap'],
-    $schemaTags['partner_meal_time'], $schemaTags['moved']);
+    $schemaTags['partner_meal_time'], $schemaTags['moved'], $schemaTags['category']);
 check('MEAL_TAGS has the same tags and values as db/schema.sql',
     $schemaTags === array_map(fn(array $definition): array => array_keys($definition['values']), MEAL_TAGS));
+check('INGREDIENT_CATEGORIES has the same values as db/schema.sql', $schemaCategories === array_keys(INGREDIENT_CATEGORIES));
 
 save_blueprint_slot($db, 1, 2, 'lunch', $aelplerId, null);
 check('slot holds the meal', load_blueprints($db)[1][2]['lunch']['meal'] === 'Älplermagronen');
@@ -147,6 +149,62 @@ check('unknown meal is not found', find_meal($db, 999) === null);
 check('meal used in a week blueprint cannot be deleted', throws(fn() => delete_meal($db, $aelplerId, today()), UserError::class));
 delete_meal($db, create_meal($db, meal_input('Unused')), today());
 check('unused meal can be deleted', $mealCount() === 2);
+
+// Ingredients and recipe link (FR-27 to FR-29).
+$ingredientCount = fn(): int => (int)$db->query('SELECT COUNT(*) FROM ingredient')->fetchColumn();
+$soupId = create_meal($db, meal_input('Suppe') + ['recipe_url' => ' https://example.com/suppe ', 'ingredients' => [
+    ['name' => ' Karotten ', 'category' => 'fruit_vegetables'], ['name' => '', 'category' => ''],
+    ['name' => 'Lauch', 'category' => 'fruit_vegetables'], ['name' => 'KAROTTEN', 'category' => 'other']]]);
+$soup = find_meal($db, $soupId);
+check('meal with recipe link and ingredients: trimmed, empty and repeated names dropped, order kept',
+    $soup['recipe_url'] === 'https://example.com/suppe' && array_column($soup['ingredients'], 'name') === ['Karotten', 'Lauch']
+    && array_column($soup['ingredients'], 'category') === ['fruit_vegetables', 'fruit_vegetables']);
+check('new ingredient name without a category is rejected, nothing saved', throws(fn() => create_meal($db, meal_input('Eintopf')
+    + ['ingredients' => [['name' => 'Speck', 'category' => '']]]), UserError::class) && find_meal_id($db, 'Eintopf') === null);
+check('unknown category is rejected', throws(fn() => create_meal($db, meal_input('Eintopf')
+    + ['ingredients' => [['name' => 'Speck', 'category' => 'x']]]), UserError::class));
+$stewId = create_meal($db, meal_input('Eintopf') + ['ingredients' => [['name' => 'karotten', 'category' => ''],
+    ['name' => 'Speck', 'category' => 'meat_fish']]]);
+check('known ingredient name (any case) without a category keeps its category, one row per name',
+    load_ingredients($db, $stewId)[$stewId][0] === ['name' => 'karotten', 'name_key' => 'karotten', 'category' => 'fruit_vegetables']
+    && $ingredientCount() === 3);
+update_meal($db, $stewId, meal_input('Eintopf') + ['ingredients' => [['name' => 'Karotten', 'category' => 'other']]]);
+check('a changed category applies to all meals; unused ingredient names are deleted',
+    find_meal($db, $soupId)['ingredients'][0] === ['name' => 'Karotten', 'name_key' => 'karotten', 'category' => 'other']
+    && $ingredientCount() === 2);
+check('meal list counts ingredients', array_column(list_meals($db), 'ingredients', 'name') === ['Älplermagronen' => 0,
+    'BIRCHERMÜESLI' => 0, 'Eintopf' => 1, 'Suppe' => 2]);
+check('recipe link: http(s) only, no spaces, at most 2000 characters', clean_url(' ') === null
+    && clean_url('HTTPS://example.com/rösti?a=1#b') === 'HTTPS://example.com/rösti?a=1#b'
+    && throws(fn() => clean_url('javascript:alert(1)'), UserError::class) && throws(fn() => clean_url('ftp://x'), UserError::class)
+    && throws(fn() => clean_url('https://'), UserError::class) && throws(fn() => clean_url('https://a b'), UserError::class)
+    && throws(fn() => clean_url('https://x/' . str_repeat('a', 2000)), UserError::class)
+    && throws(fn() => clean_url(['https://x']), UserError::class));
+check('database rejects a recipe link without http(s)',
+    throws(fn() => $db->exec("UPDATE meal SET recipe_url = 'javascript:x' WHERE id = $soupId"), PDOException::class));
+delete_meal($db, $stewId, today());
+delete_meal($db, $soupId, today());
+check('deleting meals deletes their ingredients', $ingredientCount() === 0
+    && (int)$db->query('SELECT COUNT(*) FROM meal_ingredient')->fetchColumn() === 0);
+
+$groceries = grocery_list([
+    '2026-01-17' => ['lunch' => ['meal_id' => 1, 'meal' => 'Suppe'], 'dinner' => ['meal_id' => 1, 'meal' => 'Suppe']],
+    '2026-01-18' => ['lunch' => ['meal_id' => null, 'meal' => null], 'dinner' => ['meal_id' => 2, 'meal' => 'Eintopf']],
+    '2026-01-19' => ['lunch' => ['meal_id' => 3, 'meal' => 'Raclette'], 'dinner' => ['meal_id' => 3, 'meal' => 'Raclette']],
+], [
+    1 => [['name' => 'Lauch', 'name_key' => 'lauch', 'category' => 'fruit_vegetables'],
+        ['name' => 'Brot', 'name_key' => 'brot', 'category' => 'bread_pastries'],
+        ['name' => 'Äpfel', 'name_key' => 'äpfel', 'category' => 'fruit_vegetables']],
+    2 => [['name' => 'Lauch', 'name_key' => 'lauch', 'category' => 'fruit_vegetables'],
+        ['name' => 'Speck', 'name_key' => 'speck', 'category' => 'meat_fish']],
+    9 => [['name' => 'Reis', 'name_key' => 'reis', 'category' => 'pasta_condiments_canned']],
+]);
+check('grocery list: categories in their order, names sorted, each once with its meals and slot count',
+    array_keys($groceries['categories']) === ['fruit_vegetables', 'meat_fish', 'bread_pastries']
+    && array_column($groceries['categories']['fruit_vegetables'], 'name') === ['Äpfel', 'Lauch']
+    && grocery_meals_text($groceries['categories']['fruit_vegetables'][1]['meals']) === 'Suppe 2×, Eintopf'
+    && grocery_meals_text($groceries['categories']['meat_fish'][0]['meals']) === 'Eintopf');
+check('grocery list: meals without ingredients', grocery_meals_text($groceries['without']) === 'Raclette 2×');
 
 // Woche 1 from Saturday 2026-01-17 (first use), so the week before is Woche 2.
 putenv('MENUPLAN_NOW=2026-01-17 12:00');
@@ -419,6 +477,12 @@ $testDb->exec("INSERT INTO week VALUES ('2026-01-17', 2, 1)");
 $testEntries = load_entries($testDb, $d('2026-01-19'), $d('2026-01-20'));
 check('test data has a leftover pair (Minestrone)', isset(slot_hints($testEntries, $d('2026-01-19'), 'dinner')['cook_double'])
     && slot_hints($testEntries, $d('2026-01-20'), 'lunch') === ['leftovers' => 'Reste vom Vorabend']);
+$usedNames = array_unique(array_merge(...array_values(TEST_MEAL_INGREDIENTS)));
+check('test data has ingredients with categories and recipe links; Raclette and Zopf-Brunch without ingredients',
+    $count($testDb, 'ingredient') === count($usedNames) && $count($testDb, 'meal') - count(TEST_MEAL_INGREDIENTS) === 2
+    && find_meal($testDb, find_meal_id($testDb, 'Raclette'))['ingredients'] === []
+    && find_meal($testDb, find_meal_id($testDb, 'Pizza'))['ingredients'][0]['category'] === 'dairy_eggs_ready_meals'
+    && find_meal($testDb, find_meal_id($testDb, 'Kürbisrisotto'))['recipe_url'] === TEST_RECIPE_URLS['Kürbisrisotto']);
 check('test data is not loaded twice', !load_test_data_if_empty($testDb) && $count($testDb, 'blueprint_slot') === 27);
 $noteDb = open_db("$tmp/notedata");
 save_blueprint_slot($noteDb, 1, 1, 'lunch', null, 'Eltern kochen');
@@ -659,6 +723,43 @@ check('used meal cannot be deleted',
 check('unused meal can be deleted', redirects_to(request('POST', '/meals/delete', ['csrf' => $token,
     'id' => $spaghettiId]), '/meals') && !str_contains(request('GET', '/meals')['body'], 'Spaghetti'));
 
+// Ingredients and recipe link (FR-27 to FR-30). Rösti is today's lunch.
+$roestiInput = ['csrf' => $token, 'id' => $roestiId] + meal_input('Rösti', ['vegetable_level' => 'raw_veggies_needed', 'shelf_life' => 'long']);
+$edit = request('GET', "/meals/edit?id=$roestiId")['body'];
+check('meal form: recipe link, one empty ingredient row, a row template, + Zutat hidden without JavaScript',
+    str_contains($edit, 'name="recipe_url"') && substr_count($edit, 'name="ingredient_name[]"') === 2
+    && str_contains($edit, '<template id="ingredient-row">') && str_contains($edit, 'class="secondary outline add-ingredient" hidden>')
+    && substr_count($edit, '<option value="fruit_vegetables">Früchte &amp; Gemüse</option>') === 2);
+check('meal list marks meals without ingredients', str_contains(request('GET', '/meals')['body'], 'Keine Zutaten'));
+$response = request('POST', '/meals/edit', $roestiInput + ['recipe_url' => 'javascript:alert(1)',
+    'ingredient_name' => ['Kartoffeln'], 'ingredient_category' => ['fruit_vegetables']]);
+check('recipe link without http(s) is rejected, entered ingredients kept', $response['status'] === 422
+    && str_contains($response['body'], 'mit https:// beginnt') && str_contains($response['body'], 'value="Kartoffeln"')
+    && str_contains($response['body'], '<option value="fruit_vegetables" selected>'));
+$response = request('POST', '/meals/edit', $roestiInput + ['ingredient_name' => ['Kartoffeln', 'Butter'],
+    'ingredient_category' => ['fruit_vegetables', '']]);
+check('new ingredient without a category is rejected', $response['status'] === 422
+    && str_contains($response['body'], 'Wähle eine Kategorie für «Butter».'));
+check('save ingredients and recipe link', redirects_to(request('POST', '/meals/edit', $roestiInput + [
+    'recipe_url' => ' https://example.com/rösti?a=1&b=2 ', 'ingredient_name' => ['Kartoffeln', '', 'Butter <b>', 'kartoffeln'],
+    'ingredient_category' => ['fruit_vegetables', '', 'dairy_eggs_ready_meals', 'other']]), "/meals#meal-$roestiId"));
+$edit = request('GET', "/meals/edit?id=$roestiId")['body'];
+check('edit form shows the saved ingredients with their category, suggestions and the recipe link',
+    substr_count($edit, 'name="ingredient_name[]"') === 4
+    && (bool)preg_match('~value="Kartoffeln".*?<option value="fruit_vegetables" selected>.*?value="Butter &lt;b&gt;".*?'
+        . '<option value="dairy_eggs_ready_meals" selected>~s', $edit)
+    && str_contains($edit, 'value="https://example.com/rösti?a=1&amp;b=2"') && str_contains($edit, '<option value="Butter &lt;b&gt;"></option>'));
+check('meal list: no mark once a meal has ingredients', !str_contains(request('GET', '/meals')['body'], 'Keine Zutaten'));
+check('day view shows the recipe link, opening in a new tab', str_contains(request('GET', '/')['body'],
+    '<a href="https://example.com/rösti?a=1&amp;b=2" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>'));
+$groceries = request('GET', '/grocery-list');
+check('grocery list of the current week (planned), linked from the week view', $groceries['status'] === 200
+    && str_contains(request('GET', '/week')['body'], '<a href="' . e(grocery_list_url($weekStart)) . '">Einkaufsliste</a>')
+    && (bool)preg_match('~<h2>Früchte &amp; Gemüse</h2>.*?value="kartoffeln".*?Kartoffeln <small>Rösti</small>.*?'
+        . '<h2>Milchprodukte, Eier &amp; frische Fertiggerichte</h2>.*?Butter &lt;b&gt; <small>Rösti</small>~s', $groceries['body'])
+    && str_contains($groceries['body'], 'data-week="' . $weekStart->format('Y-m-d') . '"')
+    && str_contains($groceries['body'], 'href="/week" aria-current="page"'));
+
 // Today: lunch Rösti (plan), dinner note "Eltern kochen" (plan).
 $todayKey = today()->format('Y-m-d');
 $slotInput = fn(string $mealTime, string $date = ''): array => ['csrf' => $token, 'date' => $date ?: $todayKey, 'meal_time' => $mealTime];
@@ -820,12 +921,16 @@ check('choosing the other week blueprint discards the changes',
 check('invalid week blueprint is rejected', request('POST', '/planning/blueprint', ['csrf' => $token, 'blueprint' => 3])['status'] === 400);
 request('POST', '/planning/blueprint', ['csrf' => $token, 'blueprint' => 2]);
 request('POST', '/swap/skip', $planInput($monKey, 'lunch') + ['note' => '']);
+check('no grocery list for a week not planned', redirects_to(request('GET', grocery_list_url($nextSat)), '/planning')
+    && str_contains(request('GET', '/planning')['body'], 'sobald die Woche geplant ist')
+    && !str_contains(request('GET', "/week?date=$satKey")['body'], 'Einkaufsliste'));
 $complete = request('GET', '/planning/complete')['body'];
 check('Planung abschliessen asks for confirmation', str_contains($complete, 'nicht wieder öffnen')
     && str_contains($complete, 'action="/planning/complete"'));
 check('complete planning', redirects_to(request('POST', '/planning/complete', ['csrf' => $token]), '/planning')
     && str_contains($planning = request('GET', '/planning')['body'], 'Planung abgeschlossen.')
     && str_contains($planning, 'Die nächste Woche ist geplant.') && !str_contains($planning, 'slot-menu')
+    && str_contains($planning, 'href="' . e(grocery_list_url($nextSat)) . '" role="button">Einkaufsliste</a>')
     && redirects_to(request('GET', '/planning/complete'), '/planning'));
 check('completing again is refused', redirects_to(request('POST', '/planning/complete', ['csrf' => $token]), '/planning')
     && str_contains(request('GET', '/planning')['body'], WEEK_PLANNED));
@@ -843,6 +948,9 @@ check('the next week can be swapped in the day view once planned', substr_count(
 check('swap in the planned next week', redirects_to(request('POST', '/swap/meal', $slotInput('lunch', $satKey)
     + ['meal_id' => $pastaId]), "/?date=$satKey")
     && str_contains(request('GET', "/?date=$satKey")['body'], 'Pasta <small class="swapped">getauscht</small>'));
+$groceries = request('GET', grocery_list_url($nextSat))['body'];
+check('grocery list includes swaps, excludes skipped slots, names meals without ingredients',
+    !str_contains($groceries, 'Kartoffeln') && str_contains($groceries, 'Ohne Zutaten: Pasta</p>'));
 check('reset of the swap restores the planned week',
     redirects_to(request('POST', '/swap/reset', $slotInput('lunch', $satKey)), "/?date=$satKey")
     && str_contains(request('GET', "/?date=$satKey")['body'], '<p class="meal-name">Rösti</p>'));

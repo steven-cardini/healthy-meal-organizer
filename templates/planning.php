@@ -5,7 +5,10 @@
 </hgroup>
 <?php if ($week['planned']): ?>
     <p>Die nächste Woche ist geplant. Die Woche danach kannst du ab <?= e(weekday($weekStart)) ?> planen.</p>
-    <p><a href="/week?date=<?= e($weekStart->format('Y-m-d')) ?>" role="button" class="secondary outline">Zur Woche</a></p>
+    <p class="actions-inline">
+        <a href="<?= e(grocery_list_url($weekStart)) ?>" role="button">Einkaufsliste</a>
+        <a href="/week?date=<?= e($weekStart->format('Y-m-d')) ?>" role="button" class="secondary outline">Zur Woche</a>
+    </p>
 <?php else: ?>
     <form method="post" action="/planning/blueprint" class="blueprint-choice">
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">

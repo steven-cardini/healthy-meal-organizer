@@ -42,6 +42,22 @@ const MEAL_TAGS = [
     ]],
 ];
 
+/** Ingredient categories in the order of the grocery list (FR-28). Same values as the CHECK in db/schema.sql. */
+const INGREDIENT_CATEGORIES = [
+    'fruit_vegetables' => 'Früchte & Gemüse',
+    'meat_fish' => 'Fleisch & Fisch',
+    'dairy_eggs_ready_meals' => 'Milchprodukte, Eier & frische Fertiggerichte',
+    'bread_pastries' => 'Brot & Backwaren',
+    'pasta_condiments_canned' => 'Pasta, Würzmittel & Konserven',
+    'snacks_sweets' => 'Snacks & Süssigkeiten',
+    'frozen' => 'Tiefkühlprodukte',
+    'drinks_coffee_tea' => 'Getränke, Kaffee & Tee',
+    'wine_beer_spirits' => 'Wein, Bier & Spirituosen',
+    'other' => 'Sonstige',
+];
+
+const MAX_URL_LENGTH = 2000;
+
 /** Tags shown in the day view and the meal list (docs/decisions.md D-25). */
 const SUMMARY_TAGS = ['protein_source', 'prep_time', 'child_factor'];
 
@@ -198,7 +214,7 @@ function asset_url(string $path): string
 
 /**
  * HTML for a slot as shown in the day and week view. $entries: see load_entries(), including the day before and after.
- * $withTags: day view, adds the protein avatar and SUMMARY_TAGS (docs/decisions.md D-25).
+ * $withTags: day view, adds the protein avatar, SUMMARY_TAGS (docs/decisions.md D-25) and the recipe link (D-50).
  */
 function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bool $withTags = false): string
 {
@@ -222,8 +238,10 @@ function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bo
     if (!$withTags) {
         return $name . $hints;
     }
-    return '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name . tags_html($entry) . '</div>'
-        . $hints . '</div>';
+    $recipe = $entry['recipe_url'] === null ? ''
+        : '<a href="' . e($entry['recipe_url']) . '" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>';
+    return '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name . tags_html($entry) . $recipe
+        . '</div>' . $hints . '</div>';
 }
 
 /** Values of SUMMARY_TAGS with their icons. $meal: row with these tag columns. Spans, as buttons allow no lists. */
@@ -319,6 +337,51 @@ function planning_open_html(DateTimeImmutable $weekStart, array $week): string
         return '';
     }
     return '<p class="planning-open">Planung offen' . ($weekStart == $next ? ' · <a href="/planning">Planen</a>' : '') . '</p>';
+}
+
+/**
+ * Grocery list of a week (FR-31, FR-33). $entries: load_entries() of the week; $ingredients: load_ingredients().
+ * meals: the meals using an ingredient, in the order of the week, count: number of slots.
+ * @return array{categories: array<string, list<array{name: string, name_key: string, meals: list<array{meal: string, count: int}>}>>,
+ *     without: list<array{meal: string, count: int}>}
+ */
+function grocery_list(array $entries, array $ingredients): array
+{
+    $meals = [];
+    foreach ($entries as $slots) {
+        foreach ($slots as $entry) {
+            if ($entry['meal_id'] !== null) {
+                $meals[$entry['meal_id']] ??= ['meal' => $entry['meal'], 'count' => 0];
+                $meals[$entry['meal_id']]['count']++;
+            }
+        }
+    }
+    $items = [];
+    $without = [];
+    foreach ($meals as $mealId => $meal) {
+        if (!isset($ingredients[$mealId])) {
+            $without[] = $meal;
+        }
+        foreach ($ingredients[$mealId] ?? [] as $ingredient) {
+            $items[$ingredient['category']][$ingredient['name_key']] ??=
+                ['name' => $ingredient['name'], 'name_key' => $ingredient['name_key'], 'meals' => []];
+            $items[$ingredient['category']][$ingredient['name_key']]['meals'][] = $meal;
+        }
+    }
+    $categories = [];
+    foreach (array_keys(INGREDIENT_CATEGORIES) as $category) {
+        if (isset($items[$category])) {
+            $categories[$category] = array_values($items[$category]);
+            usort($categories[$category], fn(array $a, array $b): int => strcmp(sort_key($a['name']), sort_key($b['name'])));
+        }
+    }
+    return ['categories' => $categories, 'without' => $without];
+}
+
+/** e.g. "Spaghetti Bolognese 2×, Lasagne". $meals: see grocery_list(). */
+function grocery_meals_text(array $meals): string
+{
+    return implode(', ', array_map(fn(array $meal): string => $meal['meal'] . ($meal['count'] > 1 ? " {$meal['count']}×" : ''), $meals));
 }
 
 function flash_html(?array $flash): string

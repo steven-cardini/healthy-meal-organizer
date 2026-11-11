@@ -1001,3 +1001,107 @@ body.offline {
     top: -0.625rem;
     right: -0.5rem;
 }
+
+/* Ingredients and recipe link (FR-27 to FR-30) */
+
+.recipe {
+    display: inline-block;
+    margin-top: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.recipe::before {
+    content: "\1F4D6" / "";
+    margin-right: 0.375em;
+}
+
+.meal-list-badges {
+    display: flex;
+    flex: none;
+    gap: 0.25rem;
+}
+
+fieldset.ingredients legend small {
+    margin-left: 0.25rem;
+}
+
+.ingredient {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.ingredient :is(input, select) {
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 575.98px) {
+    .ingredient {
+        grid-template-columns: 1fr;
+        gap: 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--pico-muted-border-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .ingredient :is(input, select) {
+        margin-bottom: 0.25rem;
+    }
+}
+
+.add-ingredient {
+    width: auto;
+}
+
+/* Grocery list (FR-31 to FR-33) */
+
+.grocery-link a::before {
+    content: "\1F6D2" / "";
+    margin-right: 0.375em;
+}
+
+.grocery-list h2 {
+    margin-bottom: 0.5rem;
+    font-size: 1.0625rem;
+}
+
+.grocery-list ul {
+    padding: 0;
+}
+
+.grocery-list li {
+    margin: 0;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    list-style: none;
+}
+
+.grocery-list label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin: 0;
+    padding-block: 0.5rem;
+    cursor: pointer;
+}
+
+.grocery-list input {
+    flex: none;
+    margin: 0;
+}
+
+.grocery-list small {
+    display: block;
+    color: var(--pico-muted-color);
+    font-size: 0.8125rem;
+}
+
+.grocery-list label:has(:checked) span {
+    color: var(--pico-muted-color);
+    text-decoration: line-through;
+}
+
+.actions-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}

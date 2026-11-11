@@ -1,6 +1,9 @@
 <?php declare(strict_types=1) ?>
 <h1>Woche <?= e($week['blueprint']) ?> · <?= e(format_week_dates($weekStart)) ?></h1>
 <?= planning_open_html($weekStart, $week) ?>
+<?php if ($week['planned']): ?>
+    <p class="grocery-link"><a href="<?= e(grocery_list_url($weekStart)) ?>">Einkaufsliste</a></p>
+<?php endif ?>
 <?php foreach ($days as $day): ?>
     <?php $isToday = $day == $today ?>
     <article class="week-day"<?= $isToday ? ' aria-current="date"' : '' ?>>

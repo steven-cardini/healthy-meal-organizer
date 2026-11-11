@@ -14,8 +14,30 @@ CREATE TABLE meal (
     child_factor    TEXT NOT NULL CHECK (child_factor IN ('high_flyer', 'deconstructed', 'acquired_taste')),
     shelf_life      TEXT NOT NULL CHECK (shelf_life IN ('short', 'medium', 'long')),
     leftovers       TEXT NOT NULL CHECK (leftovers IN ('reheats_well', 'eat_fresh')),
-    vegetable_level TEXT NOT NULL CHECK (vegetable_level IN ('main_component', 'side_dish', 'raw_veggies_needed'))
+    vegetable_level TEXT NOT NULL CHECK (vegetable_level IN ('main_component', 'side_dish', 'raw_veggies_needed')),
+    recipe_url      TEXT CHECK (length(recipe_url) <= 2000 AND (recipe_url LIKE 'http://%' OR recipe_url LIKE 'https://%'))
 );
+
+-- One row per ingredient name; its category applies to all meals (docs/decisions.md D-45).
+-- Categories: see INGREDIENT_CATEGORIES in src/app.php.
+CREATE TABLE ingredient (
+    id       INTEGER PRIMARY KEY,
+    name     TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 100),
+    name_key TEXT NOT NULL UNIQUE,
+    category TEXT NOT NULL CHECK (category IN ('fruit_vegetables', 'meat_fish', 'dairy_eggs_ready_meals',
+                 'bread_pastries', 'pasta_condiments_canned', 'snacks_sweets', 'frozen', 'drinks_coffee_tea',
+                 'wine_beer_spirits', 'other'))
+);
+
+-- position: order in the meal form.
+CREATE TABLE meal_ingredient (
+    meal_id       INTEGER NOT NULL REFERENCES meal (id) ON DELETE CASCADE,
+    ingredient_id INTEGER NOT NULL REFERENCES ingredient (id) ON DELETE RESTRICT,
+    position      INTEGER NOT NULL,
+    PRIMARY KEY (meal_id, ingredient_id)
+);
+
+CREATE INDEX meal_ingredient_ingredient_id ON meal_ingredient (ingredient_id);
 
 -- Woche 1 and Woche 2 (FR-1). day: 1 = first day of the week (WEEK_START, Saturday).
 CREATE TABLE blueprint_slot (

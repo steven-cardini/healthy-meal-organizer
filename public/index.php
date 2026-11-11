@@ -25,6 +25,7 @@ const ROUTES = [
     'GET /' => 'day_page',
     'GET /week' => 'week_page',
     'GET /planning' => 'planning_page',
+    'GET /grocery-list' => 'grocery_list_page',
     'POST /planning/blueprint' => 'choose_blueprint_action',
     'GET /planning/complete' => 'complete_page',
     'POST /planning/complete' => 'complete_action',

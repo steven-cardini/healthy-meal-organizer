@@ -16,7 +16,7 @@ Browser / PWA ──HTTPS──▶ Apache (docroot = public/) ──▶ public/i
 |---------|-------------------------------------------------------------------------------------------------|
 | Backend | Plain PHP 8.5 (`declare(strict_types=1)`), no framework, no Composer                            |
 | Data    | SQLite via PDO. `data/db.sqlite` is created from `db/schema.sql` on the first request           |
-| UI      | Server-rendered HTML templates, plain forms, Pico.css v2 (jade theme, CDN, version-pinned, SRI) with warm colours overridden in `app.css`. JavaScript only for the service worker registration and swipe navigation (D-28); every page works without it |
+| UI      | Server-rendered HTML templates, plain forms, Pico.css v2 (jade theme, CDN, version-pinned, SRI) with warm colours overridden in `app.css`. JavaScript only for the service worker registration, swipe navigation (D-28), ingredient rows in the meal form (D-47) and ticks on the grocery list (D-49); every page works without it |
 | PWA     | Web app manifest and a small service worker                                                     |
 | Hosting | Apache with `mod_rewrite`, HTTPS                                                                |
 
@@ -30,9 +30,9 @@ public/               Document root (the only web-accessible folder)
   manifest.webmanifest
   sw.js               Service worker (at the root so its scope is /)
   offline.html
-  assets/             app.css (theme, tag icons), app.js (service worker registration, swipe, slide direction), icons/
+  assets/             app.css (theme, tag icons), app.js (service worker registration, swipe, slide direction, ingredient rows, grocery ticks), icons/
 src/                  PHP code: app.php (helpers, config, DB, session), calendar.php, repository.php, pages.php,
-                      test_data.php (test week blueprints, loaded into an empty DB if config.php has load_test_data = true)
+                      test_data.php (test meals with ingredients and week blueprints, loaded into an empty DB if config.php has load_test_data = true)
 templates/            HTML templates
 db/schema.sql         Database schema (SSOT)
 data/                 db.sqlite, sessions/ (gitignored, created at runtime; location set by data_dir in config.php)
@@ -48,6 +48,7 @@ config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 | GET      | `/`             | Day view; optional `?date=YYYY-MM-DD`           |
 | GET      | `/week`         | Week view; optional `?date=` (any day of the week) |
 | GET      | `/planning`     | *Planen*: the next week                         |
+| GET      | `/grocery-list` | *Einkaufsliste* of a planned week; `?date=` (any day of the week) |
 | POST     | `/planning/blueprint` | Plan the next week from the other week blueprint (`blueprint`) |
 | GET/POST | `/planning/complete` | *Planung abschliessen*: confirmation / complete |
 | GET      | `/week-blueprints` | Week blueprint editor                        |
@@ -60,7 +61,7 @@ config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 | GET/POST | `/swap/skip`    | *Auslassen* form / skip with an optional note |
 | POST     | `/swap/reset`   | *Zurücksetzen*                                  |
 | GET/POST | `/meals/new`    | New meal form / create; optional `?name=`, and the slot to fill after saving: `?blueprint=&day=&meal_time=` (week blueprint) or `?date=&meal_time=` (planning, swap) |
-| GET/POST | `/meals/edit`   | Edit form (`?id=`) / save name and tags         |
+| GET/POST | `/meals/edit`   | Edit form (`?id=`) / save name, tags, ingredients and recipe link |
 | POST     | `/meals/delete` | Delete an unused meal                           |
 | GET/POST | `/login`        | Login form / login                              |
 
@@ -88,21 +89,33 @@ What is cooked on a date (`load_entries()`): the `date_slot` row with `swap` = 1
 
 Name and one radio group per tag (FR-13), without a preselected value; every group is `required`. The tags and their UI labels are defined in `MEAL_TAGS` (`src/app.php`), which must match the `CHECK` constraints in `db/schema.sql` (checked by the smoke tests).
 
+Optional recipe link (`type="url"`, `http`/`https` only, D-50).
+
+Ingredients: one row per ingredient with a name (suggestions from all ingredient names via `<datalist>`) and a category (`INGREDIENT_CATEGORIES` in `src/app.php`, must match the `CHECK` in `db/schema.sql`). Existing ingredients show their category; a new row's category is empty. On save: rows with an empty name are dropped, names entered twice count once; an empty category takes the category of the known name, and is an error (422, D-22) for a new name; a chosen category and the spelling of the name are stored for the name, i.e. for all meals. *+ Zutat* clones an empty row from a `<template>` (D-47).
+
+## Grocery list
+
+`/grocery-list` takes the entries (`load_entries()`) of a planned week, skips slots without a meal, and groups the ingredients of their meals by `name_key`: categories in the order of `INGREDIENT_CATEGORIES`, names sorted like the meal list. Below each ingredient, its meals with the number of slots if more than one (*2×*). Meals without ingredients are listed below (*Ohne Zutaten*). A week not planned redirects to the *Planen* page.
+
+Each ingredient has a checkbox; `app.js` stores the ticked `name_key`s in `sessionStorage` under the week's first date (D-49).
+
 ## Data model
 
 Conceptual only. The SSOT is `db/schema.sql`.
 
-- **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13)
+- **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13), `recipe_url` (optional, `http(s)://`, max. 2000 characters)
 - **blueprint_slot**: `blueprint` (1 | 2), `day` (1–7, 1 = Saturday), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
   - Primary key (`blueprint`, `day`, `meal_time`). Exactly one of `meal_id` / `note` is set. No row means the slot is empty.
 - **week**: `start_date` (a Saturday, primary key), `blueprint` (1 | 2), `planned` (0/1). A row exists once a week is planned, or once the other week blueprint was chosen while planning it.
 - **date_slot**: `date` (`YYYY-MM-DD`), `meal_time`, `swap` (0: planned week or planning, 1: swap), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note`, `partner_date`, `partner_meal_time`, `moved` (0/1)
   - Primary key (`date`, `meal_time`, `swap`). At most one of `meal_id` / `note`; neither means empty or skipped, or moved away if there is a partner. A partner (exchange, move) excludes a note. `moved`: the meal was moved here; requires a meal and a partner.
+- **ingredient**: `id`, `name` (max. 100 characters), `name_key` (unique, as for `meal`), `category` (`CHECK` on the codes of FR-28). Deleted when no meal uses it any more.
+- **meal_ingredient**: `meal_id` (FK → meal, `ON DELETE CASCADE`), `ingredient_id` (FK → ingredient, `ON DELETE RESTRICT`), `position` (order in the meal form). Primary key (`meal_id`, `ingredient_id`).
 - **login_failure**: `ip`, `failed_at` (for login throttling)
 
-Meal names and notes are trimmed, and runs of whitespace are collapsed to one space. The meal list is sorted with accented letters treated like their base letter (`ä` like `a`).
+Meal names, ingredient names and notes are trimmed, and runs of whitespace are collapsed to one space. The meal list and the grocery list are sorted with accented letters treated like their base letter (`ä` like `a`).
 
-Schema version: `PRAGMA user_version` (currently 1; the meal tags, `date_slot` and `week` were added to version 1 while production held only test data, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
+Schema version: `PRAGMA user_version` (currently 1; the meal tags, `date_slot`, `week` and the ingredients were added to version 1 while production held only test data, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
 
 ## Weeks and week blueprints
 
@@ -145,6 +158,6 @@ No inline scripts or styles. PHP errors are logged, never displayed (except on t
 
 Not implemented yet. Recorded so that the design leaves room for them.
 
-- **Recipes, shopping list (phase 5):** recipes with ingredients, linked to `meal`.
+- **Ingredient quantities (later):** a column on `meal_ingredient`.
 - **Health balance (phase 6):** based on the meal tags (FR-13) and the entries of past dates (planned weeks and kept swaps).
 - **More week blueprints (later):** the alternation and the `CHECK`s on `blueprint_slot.blueprint` and `week.blueprint` assume two.

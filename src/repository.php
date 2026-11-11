@@ -6,15 +6,15 @@ const LOGIN_MAX_FAILURES = 5;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 const SQLSTATE_CONSTRAINT = '23000';
 
-/** Case-insensitive key that enforces unique meal names (SQLite NOCASE ignores umlauts). */
-function meal_name_key(string $name): string
+/** Case-insensitive key of meal and ingredient names (SQLite NOCASE ignores umlauts). */
+function name_key(string $name): string
 {
     return mb_strtolower($name);
 }
 
 /** Columns of an entry: what a slot holds. The tags are null if there is no meal. */
 const ENTRY_COLUMNS = 's.meal_id, s.note, m.name AS meal, m.protein_source, m.prep_time, m.child_factor,
-    m.shelf_life, m.leftovers, m.vegetable_level';
+    m.shelf_life, m.leftovers, m.vegetable_level, m.recipe_url';
 const EMPTY_ENTRY = ['meal_id' => null, 'note' => null, 'meal' => null];
 const UNCHANGED = ['changed' => false, 'moved' => false, 'moved_away' => false, 'moved_to' => null];
 
@@ -291,59 +291,101 @@ function in_transaction(PDO $db, callable $fn): mixed
 function find_meal_id(PDO $db, string $name): ?int
 {
     $stmt = $db->prepare('SELECT id FROM meal WHERE name_key = ?');
-    $stmt->execute([meal_name_key($name)]);
+    $stmt->execute([name_key($name)]);
     $id = $stmt->fetchColumn();
     return $id === false ? null : (int)$id;
 }
 
-/** @return ?array{id: int, name: string, uses: int, ...} the meal with all tags */
+/** @return ?array{id: int, name: string, recipe_url: ?string, ingredients: list<array{name: string, category: string}>, uses: int, ...} the meal with all tags */
 function find_meal(PDO $db, int $id): ?array
 {
     $stmt = $db->prepare('SELECT m.id, m.name, m.protein_source, m.heaviness, m.prep_time, m.child_factor,
-            m.shelf_life, m.leftovers, m.vegetable_level,
+            m.shelf_life, m.leftovers, m.vegetable_level, m.recipe_url,
             (SELECT COUNT(*) FROM blueprint_slot s WHERE s.meal_id = m.id) AS uses
         FROM meal m WHERE m.id = ?');
     $stmt->execute([$id]);
-    return $stmt->fetch() ?: null;
+    $meal = $stmt->fetch();
+    return $meal === false ? null : $meal + ['ingredients' => load_ingredients($db, $id)[$id] ?? []];
 }
 
-/** $meal: name and one value per tag in MEAL_TAGS. Returns the new ID. */
+/**
+ * Ingredients of all meals, or of the meal $mealId, in the order of the meal form.
+ * @return array<int, list<array{name: string, name_key: string, category: string}>> [meal_id]
+ */
+function load_ingredients(PDO $db, ?int $mealId = null): array
+{
+    $stmt = $db->prepare('SELECT mi.meal_id, i.name, i.name_key, i.category
+        FROM meal_ingredient mi JOIN ingredient i ON i.id = mi.ingredient_id
+        WHERE ? IS NULL OR mi.meal_id = ? ORDER BY mi.meal_id, mi.position');
+    $stmt->execute([$mealId, $mealId]);
+    $ingredients = [];
+    foreach ($stmt as $row) {
+        $ingredients[$row['meal_id']][] = ['name' => $row['name'], 'name_key' => $row['name_key'], 'category' => $row['category']];
+    }
+    return $ingredients;
+}
+
+/** @return list<string> all ingredient names, sorted (suggestions in the meal form) */
+function ingredient_names(PDO $db): array
+{
+    $names = $db->query('SELECT name FROM ingredient')->fetchAll(PDO::FETCH_COLUMN);
+    usort($names, fn(string $a, string $b): int => strcmp(sort_key($a), sort_key($b)));
+    return $names;
+}
+
+/**
+ * $meal: name, one value per tag in MEAL_TAGS, optional recipe_url and ingredients (list of name and category, as
+ * entered; see clean_ingredients()). Returns the new ID. Callers run it in a transaction (in_transaction()).
+ */
 function create_meal(PDO $db, array $meal): int
 {
+    [$params, $ingredients] = meal_params($db, $meal);
     execute_meal_write($db, 'INSERT INTO meal (name, name_key, protein_source, heaviness, prep_time, child_factor,
-            shelf_life, leftovers, vegetable_level)
+            shelf_life, leftovers, vegetable_level, recipe_url)
         VALUES (:name, :name_key, :protein_source, :heaviness, :prep_time, :child_factor,
-            :shelf_life, :leftovers, :vegetable_level)', $meal);
-    return (int)$db->lastInsertId();
+            :shelf_life, :leftovers, :vegetable_level, :recipe_url)', $params);
+    $id = (int)$db->lastInsertId();
+    save_meal_ingredients($db, $id, $ingredients);
+    return $id;
 }
 
 /** $meal: see create_meal(). */
 function update_meal(PDO $db, int $id, array $meal): void
 {
+    [$params, $ingredients] = meal_params($db, $meal);
     $stmt = execute_meal_write($db, 'UPDATE meal SET name = :name, name_key = :name_key,
             protein_source = :protein_source, heaviness = :heaviness, prep_time = :prep_time,
             child_factor = :child_factor, shelf_life = :shelf_life, leftovers = :leftovers,
-            vegetable_level = :vegetable_level
-        WHERE id = :id', $meal, ['id' => $id]);
+            vegetable_level = :vegetable_level, recipe_url = :recipe_url
+        WHERE id = :id', $params + ['id' => $id]);
     if ($stmt->rowCount() === 0) {
         throw new UserError('Dieses Gericht gibt es nicht mehr.');
     }
+    save_meal_ingredients($db, $id, $ingredients);
 }
 
-function execute_meal_write(PDO $db, string $sql, array $meal, array $params = []): PDOStatement
+/** Validates $meal (see create_meal()). @return array{array<string, ?string>, list<array{name: string, name_key: string, category: string}>} [SQL parameters, ingredients] */
+function meal_params(PDO $db, array $meal): array
 {
     if (($meal['name'] ?? '') === '') {
         throw new UserError('Gib einen Namen ein.');
     }
+    $params = ['name' => $meal['name'], 'name_key' => name_key($meal['name'])];
     foreach (MEAL_TAGS as $tag => $definition) {
         if (!is_string($meal[$tag] ?? null) || !isset($definition['values'][$meal[$tag]])) {
             throw new UserError('Wähle bei jeder Eigenschaft einen Wert.');
         }
         $params[$tag] = $meal[$tag];
     }
+    $params['recipe_url'] = clean_url($meal['recipe_url'] ?? '');
+    return [$params, clean_ingredients($db, $meal['ingredients'] ?? [])];
+}
+
+function execute_meal_write(PDO $db, string $sql, array $params): PDOStatement
+{
     $stmt = $db->prepare($sql);
     try {
-        $stmt->execute($params + ['name' => $meal['name'], 'name_key' => meal_name_key($meal['name'])]);
+        $stmt->execute($params);
     } catch (PDOException $e) {
         if ($e->getCode() === SQLSTATE_CONSTRAINT) {
             throw new UserError('Es gibt bereits ein Gericht mit diesem Namen.');
@@ -353,10 +395,78 @@ function execute_meal_write(PDO $db, string $sql, array $meal, array $params = [
     return $stmt;
 }
 
-/** @return list<array{id: int, name: string, protein_source: string, prep_time: string, child_factor: string, uses: int}> sorted by name */
+/** A recipe link: an http(s) URL without spaces, or null if empty (D-50). */
+function clean_url(mixed $value): ?string
+{
+    if (!is_string($value) || !mb_check_encoding($value, 'UTF-8')) {
+        throw new UserError('Ungültige Eingabe.');
+    }
+    $url = trim($value);
+    if ($url === '') {
+        return null;
+    }
+    if (strlen($url) > MAX_URL_LENGTH || !preg_match('~^https?://[^\s/?#]+[^\s]*$~iu', $url)) {
+        throw new UserError('Gib beim Rezept einen Link ein, der mit https:// beginnt.');
+    }
+    return $url;
+}
+
+/**
+ * $rows: list of name and category as entered. Drops empty names and names entered twice. An empty category takes
+ * the category of the known name; a new name needs one (FR-27, FR-28).
+ * @return list<array{name: string, name_key: string, category: string}>
+ */
+function clean_ingredients(PDO $db, array $rows): array
+{
+    $known = $db->prepare('SELECT category FROM ingredient WHERE name_key = ?');
+    $ingredients = [];
+    foreach ($rows as $row) {
+        $name = clean_text($row['name'] ?? null);
+        $key = name_key($name);
+        if ($name === '' || isset($ingredients[$key])) {
+            continue;
+        }
+        $category = $row['category'] ?? '';
+        if ($category === '') {
+            $known->execute([$key]);
+            $category = $known->fetchColumn();
+            if ($category === false) {
+                throw new UserError("Wähle eine Kategorie für «{$name}».");
+            }
+        } elseif (!is_string($category) || !isset(INGREDIENT_CATEGORIES[$category])) {
+            throw new UserError('Ungültige Kategorie.');
+        }
+        $ingredients[$key] = ['name' => $name, 'name_key' => $key, 'category' => $category];
+    }
+    return array_values($ingredients);
+}
+
+/** Replaces the ingredients of a meal. A chosen category applies to all meals with that ingredient (D-45). */
+function save_meal_ingredients(PDO $db, int $mealId, array $ingredients): void
+{
+    $db->prepare('DELETE FROM meal_ingredient WHERE meal_id = ?')->execute([$mealId]);
+    $upsert = $db->prepare('INSERT INTO ingredient (name, name_key, category) VALUES (?, ?, ?)
+        ON CONFLICT (name_key) DO UPDATE SET name = excluded.name, category = excluded.category RETURNING id');
+    $link = $db->prepare('INSERT INTO meal_ingredient (meal_id, ingredient_id, position) VALUES (?, ?, ?)');
+    foreach ($ingredients as $position => $ingredient) {
+        $upsert->execute([$ingredient['name'], $ingredient['name_key'], $ingredient['category']]);
+        $ingredientId = (int)$upsert->fetchColumn();
+        $upsert->closeCursor();
+        $link->execute([$mealId, $ingredientId, $position]);
+    }
+    delete_unused_ingredients($db);
+}
+
+function delete_unused_ingredients(PDO $db): void
+{
+    $db->exec('DELETE FROM ingredient WHERE id NOT IN (SELECT ingredient_id FROM meal_ingredient)');
+}
+
+/** @return list<array{id: int, name: string, protein_source: string, prep_time: string, child_factor: string, uses: int, ingredients: int}> sorted by name */
 function list_meals(PDO $db): array
 {
-    $meals = $db->query('SELECT m.id, m.name, m.protein_source, m.prep_time, m.child_factor, COUNT(s.blueprint) AS uses
+    $meals = $db->query('SELECT m.id, m.name, m.protein_source, m.prep_time, m.child_factor, COUNT(s.blueprint) AS uses,
+            (SELECT COUNT(*) FROM meal_ingredient mi WHERE mi.meal_id = m.id) AS ingredients
         FROM meal m LEFT JOIN blueprint_slot s ON s.meal_id = m.id GROUP BY m.id')->fetchAll();
     usort($meals, fn(array $a, array $b): int => strcmp(sort_key($a['name']), sort_key($b['name'])));
     return $meals;
@@ -385,6 +495,7 @@ function delete_meal(PDO $db, int $id, DateTimeImmutable $today): void
             WHERE meal_id = ?')->execute([$id]);
         try {
             $db->prepare('DELETE FROM meal WHERE id = ?')->execute([$id]);
+            delete_unused_ingredients($db);
         } catch (PDOException $e) {
             if ($e->getCode() === SQLSTATE_CONSTRAINT) {
                 throw new UserError('Das Gericht ist in den Wochenvorlagen eingetragen und kann nicht gelöscht werden.');
