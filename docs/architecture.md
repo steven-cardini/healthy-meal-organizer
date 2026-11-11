@@ -91,7 +91,7 @@ Name and one radio group per tag (FR-13), without a preselected value; every gro
 
 Optional recipe link (`type="url"`, `http`/`https` only, D-50).
 
-Ingredients: one row per ingredient with a name (suggestions from all ingredient names via `<datalist>`) and a category (`INGREDIENT_CATEGORIES` in `src/app.php`, must match the `CHECK` in `db/schema.sql`). Existing ingredients show their category; a new row's category is empty. On save: rows with an empty name are dropped, names entered twice count once; an empty category takes the category of the known name, and is an error (422, D-22) for a new name; a chosen category and the spelling of the name are stored for the name, i.e. for all meals. *+ Zutat* clones an empty row from a `<template>` (D-47). Entering a known name selects its category (the suggestions carry it in `data-category`).
+Ingredients: one row per ingredient with a name (suggestions from all ingredient names via `<datalist>`) and a category (`INGREDIENT_CATEGORIES` in `src/app.php`, must match the `CHECK` in `db/schema.sql`). Existing ingredients show their category; a new row's category is empty. On save: rows with an empty name are dropped, names entered twice count once; an empty category takes the category of the known name, and is an error (422, D-22) for a new name; a chosen category and the spelling of the name are stored for the name, i.e. for all meals. *+ Zutat* clones an empty row from a `<template>` (D-47). Entering a known name selects its category (the suggestions carry it in `data-category`). Focusing a name field removes the names of the other rows from the suggestions.
 
 ## Grocery list
 

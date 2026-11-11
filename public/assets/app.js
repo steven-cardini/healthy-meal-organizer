@@ -102,15 +102,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Meal form: a known ingredient name selects its category (FR-28).
+    // Meal form: suggestions without the names of the other rows (FR-27); a known name selects its category (FR-28).
     const ingredientNames = document.getElementById('ingredient-names');
-    document.querySelector('.ingredient-rows')?.addEventListener('input', (event) => {
-        const name = event.target.matches('input') ? event.target.value.trim().toLowerCase() : null;
-        const known = name && [...ingredientNames.options].find((option) => option.value.toLowerCase() === name);
-        if (known) {
-            event.target.closest('.ingredient').querySelector('select').value = known.dataset.category;
-        }
-    });
+    const ingredientRows = document.querySelector('.ingredient-rows');
+    if (ingredientNames && ingredientRows) {
+        const options = [...ingredientNames.options];
+        const categories = new Map(options.map((option) => [option.value.toLowerCase(), option.dataset.category]));
+        const key = (input) => input.value.trim().toLowerCase();
+        ingredientRows.addEventListener('focusin', (event) => {
+            if (event.target.matches('input')) {
+                const used = new Set([...ingredientRows.querySelectorAll('input')]
+                    .filter((input) => input !== event.target).map(key));
+                ingredientNames.replaceChildren(...options.filter((option) => !used.has(option.value.toLowerCase())));
+            }
+        });
+        ingredientRows.addEventListener('input', (event) => {
+            const category = event.target.matches('input') && categories.get(key(event.target));
+            if (category) {
+                event.target.closest('.ingredient').querySelector('select').value = category;
+            }
+        });
+    }
 
     // Grocery list: ticks are kept per week while the app is open (D-49).
     const groceryList = document.querySelector('.grocery-list');
