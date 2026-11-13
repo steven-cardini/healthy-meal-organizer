@@ -133,8 +133,8 @@ save_blueprint_slot($db, 2, 3, 'lunch', null, null);
 check('saving neither meal nor note empties the slot', !isset(load_blueprints($db)[2]));
 check('slot cannot hold a meal and a note',
     throws(fn() => $db->exec("INSERT INTO blueprint_slot VALUES (1, 5, 'lunch', 1, 'x')"), PDOException::class));
-check('database rejects a third week blueprint and an eighth day',
-    throws(fn() => $db->exec("INSERT INTO blueprint_slot VALUES (3, 1, 'lunch', NULL, 'x')"), PDOException::class)
+check('database rejects week blueprint 0 and an eighth day',
+    throws(fn() => $db->exec("INSERT INTO blueprint_slot VALUES (0, 1, 'lunch', NULL, 'x')"), PDOException::class)
     && throws(fn() => $db->exec("INSERT INTO blueprint_slot VALUES (1, 8, 'lunch', NULL, 'x')"), PDOException::class));
 
 $birchermuesliId = create_meal($db, meal_input('Birchermüesli'));

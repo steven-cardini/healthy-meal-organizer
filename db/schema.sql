@@ -39,9 +39,9 @@ CREATE TABLE meal_ingredient (
 
 CREATE INDEX meal_ingredient_ingredient_id ON meal_ingredient (ingredient_id);
 
--- Woche 1 and Woche 2 (FR-1). day: 1 = first day of the week (WEEK_START, Saturday).
+-- Week blueprints (FR-1): any number in the database, 1 and 2 in the code (docs/decisions.md D-53). day: 1 = first day of the week (WEEK_START, Saturday).
 CREATE TABLE blueprint_slot (
-    blueprint INTEGER NOT NULL CHECK (blueprint IN (1, 2)),
+    blueprint INTEGER NOT NULL CHECK (blueprint >= 1),
     day       INTEGER NOT NULL CHECK (day BETWEEN 1 AND 7),
     meal_time TEXT    NOT NULL CHECK (meal_time IN ('lunch', 'dinner')),
     meal_id   INTEGER REFERENCES meal (id) ON DELETE RESTRICT,
@@ -55,7 +55,7 @@ CREATE INDEX blueprint_slot_meal_id ON blueprint_slot (meal_id);
 -- A planned week, or the next week while planning it from the other week blueprint. See docs/architecture.md#planning-and-swap.
 CREATE TABLE week (
     start_date TEXT    PRIMARY KEY CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
-    blueprint  INTEGER NOT NULL CHECK (blueprint IN (1, 2)),
+    blueprint  INTEGER NOT NULL CHECK (blueprint >= 1),
     planned    INTEGER NOT NULL CHECK (planned IN (0, 1))
 );
 

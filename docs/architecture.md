@@ -105,9 +105,9 @@ Each ingredient has a checkbox; `app.js` stores the ticked `name_key`s in `sessi
 Conceptual only. The SSOT is `db/schema.sql`.
 
 - **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13), `recipe_url` (optional, `http(s)://`, max. 2000 characters)
-- **blueprint_slot**: `blueprint` (1 | 2), `day` (1–7, 1 = Saturday), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
+- **blueprint_slot**: `blueprint` (≥ 1, the code uses 1 and 2, D-53), `day` (1–7, 1 = Saturday), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
   - Primary key (`blueprint`, `day`, `meal_time`). Exactly one of `meal_id` / `note` is set. No row means the slot is empty.
-- **week**: `start_date` (a Saturday, primary key), `blueprint` (1 | 2), `planned` (0/1). A row exists once a week is planned, or once the other week blueprint was chosen while planning it.
+- **week**: `start_date` (a Saturday, primary key), `blueprint` (as in `blueprint_slot`), `planned` (0/1). A row exists once a week is planned, or once the other week blueprint was chosen while planning it.
 - **date_slot**: `date` (`YYYY-MM-DD`), `meal_time`, `swap` (0: planned week or planning, 1: swap), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note`, `partner_date`, `partner_meal_time`, `moved` (0/1)
   - Primary key (`date`, `meal_time`, `swap`). At most one of `meal_id` / `note`; neither means empty or skipped, or moved away if there is a partner. A partner (exchange, move) excludes a note. `moved`: the meal was moved here; requires a meal and a partner.
 - **ingredient**: `id`, `name` (max. 100 characters), `name_key` (unique, as for `meal`), `category` (`CHECK` on the codes of FR-28). Deleted when no meal uses it any more.
@@ -162,4 +162,4 @@ Not implemented yet. Recorded so that the design leaves room for them.
 - **Ingredient quantities (later):** a column on `meal_ingredient`.
 - **Ingredient notes (later):** a column on `meal_ingredient`; its primary key `(meal_id, ingredient_id)` must then allow the same ingredient with different notes.
 - **Health balance (phase 6):** based on the meal tags (FR-13) of a week blueprint or of the entries of a week (FR-16, also past weeks). A tag that only a few meals need is a column added with a default by a migration (D-51).
-- **More week blueprints (later):** the alternation and the `CHECK`s on `blueprint_slot.blueprint` and `week.blueprint` assume two.
+- **More week blueprints (later):** the code assumes two (alternation, validation, editor, planning); the database already allows more (D-53).
