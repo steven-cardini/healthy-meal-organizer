@@ -160,5 +160,5 @@ Not implemented yet. Recorded so that the design leaves room for them.
 
 - **Ingredient quantities (later):** a column on `meal_ingredient`.
 - **Ingredient notes (later):** a column on `meal_ingredient`; its primary key `(meal_id, ingredient_id)` must then allow the same ingredient with different notes.
-- **Health balance (phase 6):** based on the meal tags (FR-13) and the entries of past dates (planned weeks and kept swaps).
+- **Health balance (phase 6):** based on the meal tags (FR-13) of a week blueprint or of the entries of a week (FR-16, also past weeks). A tag that only a few meals need is a column added with a default by a migration (D-51).
 - **More week blueprints (later):** the alternation and the `CHECK`s on `blueprint_slot.blueprint` and `week.blueprint` assume two.

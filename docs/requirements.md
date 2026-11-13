@@ -19,11 +19,11 @@ One household. All members share one password and have the same rights (view and
 | 3       | Swap on the spot: change or skip a meal on a date of the current week                     |
 | 4       | Planning: plan the next week from its week blueprint before the groceries are ordered     |
 | 5       | Ingredients, recipe link, grocery list                                                    |
-| Real data | Before production holds real data, in this order: decide on the data needed by phase 6, set up backups, reset production (see [decisions.md](decisions.md#open-points-before-or-during-implementation)) |
-| 6       | Health balance based on scientific recommendations (e.g. Swiss food pyramid), using the meal tags |
+| Real data | Before production holds real data, in this order: set up backups, reset production (see [decisions.md](decisions.md#open-points-before-or-during-implementation)) |
+| 6       | Health balance of a week based on scientific recommendations (Swiss food pyramid, WHO), using the meal tags (draft: [Health balance](#health-balance-phase-6-draft)) |
 | Later   | Nice to have, low priority: (a) while swiping, the previous / next day or week is already shown next to the content (loaded in the background), so the switch needs no wait; (b) more week blueprints (e.g. Woche 3 and 4), minimum and maximum still open; (c) when skipping a meal whose ingredients keep only briefly, suggest moving it to a later slot whose meal keeps longer and skipping that one instead; (d) an optional note for an ingredient of a meal (e.g. *Haselnüsse* with note *ganz* or *gemahlen*), so the same ingredient can appear more than once for a meal if the notes differ (or one has none); open: how notes are shown in the ingredient suggestions |
 
-Phase 6 and "Later" are not specified yet. Earlier phases must not block them (see [architecture.md](architecture.md#extension-points)).
+Phase 6 is only drafted, "Later" is not specified yet. Earlier phases must not block them (see [architecture.md](architecture.md#extension-points)).
 
 ## Functional requirements (MVP)
 
@@ -95,7 +95,7 @@ Use cases: "I would rather eat X today", "ingredient Y was discounted", "ingredi
   - At each exchange and move option (also when planning, FR-23): a meal would move to a later date after its ingredients keep.
   - At *Aus der Liste* and *Auslassen* (not when planning, nothing is bought yet): the current meal is `short` or `medium`, so its ingredients would be left over.
   - The hint *Zutaten evtl. nicht mehr frisch* (FR-14).
-- **FR-21** A meal cannot be deleted while it is in a week blueprint, or from today on in a planned week, the planning of the next week or a swap. Deleting a meal also removes it from past dates. The meal list counts uses in the week blueprints only.
+- **FR-21** A meal cannot be deleted while it is in a week blueprint, or from today on in a planned week, the planning of the next week or a swap. Deleting a meal empties it on past dates of planned weeks and removes past swaps to it, so the planned meal shows there again (D-51). The meal list counts uses in the week blueprints only.
 
 ## Functional requirements (phase 4)
 
@@ -125,6 +125,28 @@ The groceries for a week are ordered after planning it (FR-24), from the grocery
 - **FR-31** *Einkaufsliste* of a planned week (FR-24, FR-25), linked from the week view of a planned week and from the *Planen* page once the next week is planned. It combines the ingredients of all meals cooked in that week (FR-16: including swaps, without skipped slots and notes), each ingredient once, grouped by category in the order of FR-28 and sorted alphabetically. Below each ingredient, the meals using it, with *2×* if a meal is cooked in two slots (*3×*, …).
 - **FR-32** Ingredients can be ticked off. Ticks belong to their week and are kept while the app is open, also on reload; closing the app clears them.
 - **FR-33** Below the list, *Ohne Zutaten:* names the meals of the week without ingredients.
+
+## Health balance (phase 6, draft)
+
+Not specified yet. Recorded so that the data it needs is in place before real data (D-51).
+
+- Rates a week: in the week blueprint editor, when planning the next week, and for swaps in the current week; for past weeks too if this is little effort.
+- Only lunch and dinner are known, so it rates the main meals with the existing tags.
+- Household rules per week, based on the recommendations below:
+  - `meat` (all meat except poultry, including processed meat): at most 1.
+  - `poultry`: 1–2.
+  - `fish`: 1–2.
+  - `legumes`: at least 2.
+- A `reheats_well` meal in consecutive slots (FR-14) counts once.
+- Open: how the rating is shown, whether `vegetable_level` is rated, and how slots without a meal (notes, skipped) count.
+
+Recommendations (per person):
+
+- Swiss (SGE/BLV 2024): meat at most 2–3 times a week, including poultry and processed meat, processed meat sparingly; legumes at least once a week; 3 portions of grain products a day, at least half wholegrain; 2–3 portions of dairy a day. No figure for fish found, so 1–2 is a household rule. The household rules are stricter: meat and poultry together at most 3, legumes at least 2.
+- WHO: at least 400 g of fruit and vegetables a day; whole grains, legumes and nuts; poultry and fish rather than red meat, processed meat only in limited amounts; salt below 5 g a day; free sugars below 10 % of energy; fat below 30 % of energy (saturated below 10 %, trans below 1 %).
+- Not measurable without breakfast, snacks and quantities: fruit, dairy, nuts, the wholegrain share, salt, sugar and fat.
+
+Sources: [Schweizer Ernährungsempfehlungen, Kurzversion (BLV)](https://www.blv.admin.ch/dam/blv/de/dokumente/lebensmittel-und-ernaehrung/ernaehrung/merkblatt-schweizer-ernaehrungsempfehlung-kurz.pdf.download.pdf/Schweizer%20Ern%C3%A4hrungsempfehlungen_Kurzversion_DE.pdf), [Südostschweiz: SGE on the 2024 recommendations](https://www.suedostschweiz.ch/leben-freizeit/lebensmittel-pyramide-abwechslungsreich-und-nachhaltig-neue-ernaehrungsempfehlungen-24595) (processed meat sparingly), [WHO: Healthy diet](https://www.who.int/news-room/fact-sheets/detail/healthy-diet), [WHO Europe: Nutrition for a healthy life](https://who.int/europe/news-room/fact-sheets/item/nutrition---maintaining-a-healthy-lifestyle).
 
 ## Non-functional requirements
 
