@@ -10,7 +10,12 @@ function day_page(PDO $db): never
     $entries = load_entries($db, add_days($date, -1), add_days($date, 1));
     $swappable = [];
     $resetWarnings = [];
+    $ingredients = [];
     foreach (array_keys(MEAL_TIMES) as $mealTime) {
+        $mealId = $entries[$date->format('Y-m-d')][$mealTime]['meal_id'];
+        if ($mealId !== null) {
+            $ingredients[$mealId] ??= load_ingredients($db, $mealId)[$mealId] ?? [];
+        }
         $swappable[$mealTime] = slot_mode($db, $date, $mealTime) === true;
         if ($swappable[$mealTime] && $entries[$date->format('Y-m-d')][$mealTime]['changed']) {
             $resetWarnings[$mealTime] = reset_warning(reset_slots($db, true, $date, $mealTime), $date, $mealTime);
@@ -30,6 +35,7 @@ function day_page(PDO $db): never
         'entries' => $entries,
         'swappable' => $swappable,
         'resetWarnings' => $resetWarnings,
+        'ingredients' => $ingredients,
         'previous' => add_days($date, -1),
         'next' => add_days($date, 1),
     ], $isToday ? 'day' : '');

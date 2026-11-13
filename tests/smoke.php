@@ -260,6 +260,18 @@ check('meal planned after its ingredients keep: hint, from the week blueprint or
     && slot_hints($freshEntries, $d('2026-01-21'), 'lunch') === $notFresh('short')
     && slot_hints($freshEntries, $d('2026-01-22'), 'dinner') === [] && slot_hints($freshEntries, $d('2026-01-23'), 'dinner') === $notFresh('medium')
     && str_contains(slot_html($freshEntries, $d('2026-01-20'), 'lunch'), '<li class="hint-not_fresh_short">Zutaten evtl. nicht mehr frisch</li>'));
+$curry = create_meal($hintDb, meal_input('Curry', ['shelf_life' => 'short', 'leftovers' => 'reheats_well', 'prep_time' => 'slow',
+    'vegetable_level' => 'raw_veggies_needed', 'child_factor' => 'acquired_taste']));
+save_blueprint_slot($hintDb, 1, 5, 'dinner', $curry, null);      // Wed 2026-01-21
+save_blueprint_slot($hintDb, 1, 6, 'lunch', $curry, null);       // Thu 2026-01-22
+$curryEntries = load_entries($hintDb, $d('2026-01-20'), $d('2026-01-23'));
+check('acquired taste: alternative for the children',
+    slot_hints($curryEntries, $d('2026-01-21'), 'dinner') === ['cook_double' => 'Doppelte Menge für morgen Mittag',
+        'slow' => 'Lange Zubereitung', 'raw_veggies_needed' => 'Rohkost dazu', 'child_alternative' => 'Alternative für Kinder',
+        'not_fresh_short' => 'Zutaten evtl. nicht mehr frisch']
+    && str_contains(slot_html($curryEntries, $d('2026-01-21'), 'dinner'), '<li class="hint-child_alternative">Alternative für Kinder</li>'));
+check('leftovers: only the hints for what is prepared fresh', slot_hints($curryEntries, $d('2026-01-22'), 'lunch')
+    === ['leftovers' => 'Reste vom Vorabend', 'raw_veggies_needed' => 'Rohkost dazu', 'child_alternative' => 'Alternative für Kinder']);
 
 // Swaps: week Saturday 2026-01-17 to Friday 2026-01-23 (first use, Woche 1), now is its Saturday noon.
 putenv('MENUPLAN_NOW=2026-01-17 12:00');
@@ -783,8 +795,15 @@ check('edit form shows the saved ingredients with their category, suggestions an
         . '<option value="dairy_eggs_ready_meals" selected>~s', $edit)
     && str_contains($edit, 'value="https://example.com/rösti?a=1&amp;b=2"') && str_contains($edit, '<option value="Butter &lt;b&gt;" data-category="dairy_eggs_ready_meals"></option>'));
 check('meal list: no mark once a meal has ingredients', !str_contains(request('GET', '/meals')['body'], 'Keine Zutaten'));
-check('day view shows the recipe link, opening in a new tab', str_contains(request('GET', '/')['body'],
-    '<a href="https://example.com/rösti?a=1&amp;b=2" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>'));
+check('day view: ingredients and recipe link (new tab) in the ⋯ menu', (bool)preg_match('~<details class="slot-menu">\s*'
+    . '<summary aria-label="Mehr zum Mittagessen"></summary>\s*<div class="slot-actions">\s*'
+    . '<p class="ingredients"><strong>Zutaten:</strong> Kartoffeln, Butter &lt;b&gt;</p>\s*'
+    . '<a href="https://example.com/rösti\?a=1&amp;b=2" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>\s*'
+    . '<a href="[^"]*" class="swap">~', request('GET', '/')['body']));
+$laterDay = request('GET', '/?date=' . add_days(today(), 14)->format('Y-m-d'))['body'];
+check('day view: slot that cannot be changed has a ⋯ menu with ingredients and recipe link only',
+    substr_count($laterDay, '<details class="slot-menu">') === 1 && str_contains($laterDay, 'Zutaten:</strong> Kartoffeln')
+    && str_contains($laterDay, 'class="recipe"') && !str_contains($laterDay, 'class="swap"') && !str_contains($laterDay, 'class="skip"'));
 $groceries = request('GET', '/grocery-list');
 check('grocery list of the current week (planned), linked from the week view', $groceries['status'] === 200
     && str_contains(request('GET', '/week')['body'], '<a href="' . e(grocery_list_url($weekStart)) . '">Einkaufsliste</a>')
@@ -799,7 +818,7 @@ $slotInput = fn(string $mealTime, string $date = ''): array => ['csrf' => $token
 $swapUrl = fn(string $path, string $mealTime, string $date = ''): string => $path . '?' . http_build_query(['date' => $date ?: $todayKey, 'meal_time' => $mealTime]);
 $day = request('GET', '/')['body'];
 check('day view: meal slot can be changed or skipped, note slot only changed',
-    substr_count($day, '<details class="slot-menu">') === 2 && str_contains($day, '<summary aria-label="Mittagessen ändern">')
+    substr_count($day, '<details class="slot-menu">') === 2 && str_contains($day, '<summary aria-label="Mehr zum Mittagessen">')
     && !str_contains($day, ' past') && str_contains($day, 'href="' . e($swapUrl('/swap', 'lunch')) . '" class="swap">Anderes Gericht</a>')
     && str_contains($day, 'href="' . e($swapUrl('/swap/skip', 'lunch')) . '" class="skip">Auslassen</a>')
     && str_contains($day, 'href="' . e($swapUrl('/swap', 'dinner')) . '" class="swap">Gericht planen</a>')
@@ -939,9 +958,9 @@ check('planning changes are marked, with the message at the top and reset warnin
     && str_contains($planning, '<em class="skipped">Ausgelassen</em>') && str_contains($planning, 'Setzt auch Montag Mittag zurück.')
     && str_contains($planning, 'Verwirft deine Änderungen dieser Woche.'));
 $nextDay = request('GET', "/?date=$satKey")['body'];
-check('day view of the next week shows the planning, marked, without a ⋯ menu',
+check('day view of the next week shows the planning, marked, without swap actions',
     str_contains($nextDay, 'Pasta <small class="swapped">getauscht</small>') && str_contains($nextDay, 'planning-open')
-    && !str_contains($nextDay, 'slot-menu'));
+    && !str_contains($nextDay, 'class="swap"'));
 check('reset while planning restores the week blueprint of both slots',
     redirects_to(request('POST', '/swap/reset', $planInput($monKey, 'lunch')), '/planning')
     && !str_contains($planning = request('GET', '/planning')['body'], 'getauscht') && !str_contains($planning, 'Ausgelassen</em>'));

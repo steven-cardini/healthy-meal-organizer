@@ -28,7 +28,10 @@
                     <?php
                     $entry = $entries[$date->format('Y-m-d')][$mealTime];
                     $swap = false;
-                    $menuLabel = slot_name($date, $mealTime);
+                    $menuLabel = slot_name($date, $mealTime) . ' ändern';
+                    $actions = true;
+                    $recipeUrl = null;
+                    $mealIngredients = [];
                     $resetWarning = $resetWarnings[$date->format('Y-m-d')][$mealTime] ?? null;
                     require __DIR__ . '/slot_menu.php';
                     ?>

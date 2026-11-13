@@ -62,16 +62,17 @@ Phase 6 is only drafted, "Later" is not specified yet. Earlier phases must not b
 | `protein_source` | Proteinquelle | `meat`: Fleisch, `poultry`: Geflügel, `fish`: Fisch, `legumes`: Hülsenfrüchte, `egg`: Ei, `dairy_cheese`: Milchprodukte/Käse, `tofu_meat_substitute`: Tofu & Fleischersatz, `none`: Keine Proteinquelle | Main protein source. `meat` is all meat except poultry (beef, veal, pork, lamb, game, sausages). `fish` includes seafood. `tofu_meat_substitute` includes seitan, tempeh, Quorn and plant-based mince. `none` is discouraged (warning icon) |
 | `heaviness` | Bekömmlichkeit | `light`: Leicht, `medium`: Mittel, `heavy`: Schwer | Digestion time: 1.5–2.5 h, 3–4 h, 4–6 h or more |
 | `prep_time` | Zubereitungszeit | `quick`: Schnell (≤ 20 Min.), `medium`: Mittel (20–40 Min.), `slow`: Lang (> 40 Min.) | Time and effort to prepare |
-| `child_factor` | Kindertauglichkeit | `high_flyer`: Alle mögen es, `deconstructed`: Baukasten (einzeln servierbar), `acquired_taste`: Gewöhnungsbedürftig | How the children accept it. Baukasten: components can be served separately. Gewöhnungsbedürftig: children get a neutral side dish and raw vegetables |
+| `child_factor` | Kindertauglichkeit | `high_flyer`: Alle mögen es, `deconstructed`: Baukasten (einzeln servierbar), `acquired_taste`: Gewöhnungsbedürftig | How the children accept it. Baukasten: components can be served separately. Gewöhnungsbedürftig: the children like it less and only get a small portion to get used to it, plus a balanced alternative (protein, carbohydrates, vegetables) |
 | `shelf_life` | Haltbarkeit | `short`: Kurz (1–2 Tage), `medium`: Mittel (3–5 Tage), `long`: Lang (> 5 Tage) | How long the **uncooked** ingredients keep after delivery; the most perishable main ingredient decides |
 | `leftovers` | Reste | `reheats_well`: Gut aufwärmbar, `eat_fresh`: Frisch essen | Whether the **cooked** meal still tastes good when reheated the next day |
 | `vegetable_level` | Gemüse | `main_component`: Genug enthalten, `side_dish`: Gemüsebeilage kochen, `raw_veggies_needed`: Rohkost dazu | Whether the meal contains enough vegetables, and if not, what to add |
 
 - **FR-14** The day and week view show hints below a meal, each with an icon and text:
   - *Doppelte Menge für den Abend* / *für morgen Mittag*: the meal is `reheats_well` and the same meal is planned in the next slot (lunch → dinner, dinner → next day's lunch). Slots are compared by date, including swaps (FR-16).
-  - *Reste vom Mittagessen* / *vom Vorabend*: the same `reheats_well` meal is planned in the slot before. Then no other hint is shown.
+  - *Reste vom Mittagessen* / *vom Vorabend*: the same `reheats_well` meal is planned in the slot before. As the meal is already cooked, only *Rohkost dazu* and *Alternative für Kinder* are also shown.
   - *Lange Zubereitung*: `prep_time` is `slow`.
   - *Gemüsebeilage kochen* / *Rohkost dazu*: `vegetable_level` is `side_dish` / `raw_veggies_needed`.
+  - *Alternative für Kinder*: `child_factor` is `acquired_taste`.
   - *Zutaten evtl. nicht mehr frisch*: the meal is planned after its ingredients keep (FR-20), wherever it comes from (week blueprint, planning, swap).
 - **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list and the exchange options (FR-17) show the same three tags.
 
@@ -115,7 +116,7 @@ The groceries for a week are ordered on Wednesday or Thursday before it. Before 
 
 - **FR-27** A meal has zero or more ingredients, each only a name (no quantity, e.g. *Hackfleisch*). In the meal form, each ingredient is a row with name and category; *+ Zutat* adds a row, an empty name removes it. Names already used are suggested, except those already entered for the meal. Ingredient names are compared case-insensitively; a name entered twice for a meal counts once.
 - **FR-28** Each ingredient name has one category, which applies to all meals using it. It is chosen when the name is used for the first time; for a known name it is selected automatically, or can stay empty. Changing it changes it for all meals. Categories, in this order: *Früchte & Gemüse*, *Fleisch & Fisch*, *Milchprodukte, Eier & frische Fertiggerichte*, *Brot & Backwaren*, *Pasta, Würzmittel & Konserven*, *Snacks & Süssigkeiten*, *Tiefkühlprodukte*, *Getränke, Kaffee & Tee*, *Wein, Bier & Spirituosen*, *Sonstige*.
-- **FR-29** A meal has an optional recipe link (an `http` or `https` URL). The day view shows it as *Rezept*, opening in a new tab.
+- **FR-29** A meal has an optional recipe link (an `http` or `https` URL). In the day view, the *⋯* menu of a meal shows its ingredients (*Zutaten:*) and the recipe link (*Rezept*, opening in a new tab), also for slots that cannot be changed (FR-17); then it has no other actions.
 - **FR-30** The meal list marks meals without ingredients (*Keine Zutaten*).
 
 ### Grocery list

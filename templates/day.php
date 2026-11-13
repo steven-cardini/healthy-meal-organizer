@@ -13,10 +13,15 @@
     <article class="meal-time <?= e($mealTime) ?><?= $past ? ' past' : '' ?>">
         <h2><?= e($label) ?><?php if ($past): ?><span class="visually-hidden"> (vorbei)</span><?php endif ?></h2>
         <?= slot_html($entries, $date, $mealTime, true) ?>
-        <?php if ($swappable[$mealTime]): ?>
+        <?php
+        $actions = $swappable[$mealTime];
+        $recipeUrl = $entry['recipe_url'] ?? null;
+        $mealIngredients = array_column($entry['meal_id'] === null ? [] : $ingredients[$entry['meal_id']], 'name');
+        ?>
+        <?php if ($actions || $recipeUrl !== null || $mealIngredients !== []): ?>
             <?php
             $swap = true;
-            $menuLabel = $label;
+            $menuLabel = "Mehr zum $label";
             $resetWarning = $resetWarnings[$mealTime] ?? null;
             require __DIR__ . '/slot_menu.php';
             ?>

@@ -220,7 +220,7 @@ function asset_url(string $path): string
 
 /**
  * HTML for a slot as shown in the day and week view. $entries: see load_entries(), including the day before and after.
- * $withTags: day view, adds the protein avatar, SUMMARY_TAGS (docs/decisions.md D-25) and the recipe link (D-50).
+ * $withTags: day view, adds the protein avatar and SUMMARY_TAGS (docs/decisions.md D-25).
  */
 function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bool $withTags = false): string
 {
@@ -244,9 +244,7 @@ function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bo
     if (!$withTags) {
         return $name . $hints;
     }
-    $recipe = $entry['recipe_url'] === null ? ''
-        : '<a href="' . e($entry['recipe_url']) . '" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>';
-    return '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name . tags_html($entry) . $recipe
+    return '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name . tags_html($entry)
         . '</div>' . $hints . '</div>';
 }
 
@@ -279,21 +277,25 @@ function slot_hints(array $entries, DateTimeImmutable $date, string $mealTime): 
     $sameMealIn = fn(array $neighbour): bool => $entry['leftovers'] === 'reheats_well'
         && ($entries[$neighbour[0]->format('Y-m-d')][$neighbour[1]]['meal_id'] ?? null) === $entry['meal_id'];
     $previous = previous_slot($date, $mealTime);
-    if ($sameMealIn($previous)) {
-        return ['leftovers' => $previous[1] === 'lunch' ? 'Reste vom Mittagessen' : 'Reste vom Vorabend'];
-    }
     $next = next_slot($date, $mealTime);
-    $hints = $sameMealIn($next)
-        ? ['cook_double' => 'Doppelte Menge für ' . ($next[1] === 'dinner' ? 'den Abend' : 'morgen Mittag')]
-        : [];
-    if ($entry['prep_time'] === 'slow') {
+    // Leftovers: the meal is already cooked, only what is prepared fresh is left.
+    $leftovers = $sameMealIn($previous);
+    $hints = match (true) {
+        $leftovers => ['leftovers' => $previous[1] === 'lunch' ? 'Reste vom Mittagessen' : 'Reste vom Vorabend'],
+        $sameMealIn($next) => ['cook_double' => 'Doppelte Menge für ' . ($next[1] === 'dinner' ? 'den Abend' : 'morgen Mittag')],
+        default => [],
+    };
+    if (!$leftovers && $entry['prep_time'] === 'slow') {
         $hints['slow'] = 'Lange Zubereitung';
     }
-    if ($entry['vegetable_level'] !== 'main_component') {
+    if ($entry['vegetable_level'] === 'raw_veggies_needed' || (!$leftovers && $entry['vegetable_level'] === 'side_dish')) {
         $hints[$entry['vegetable_level']] = MEAL_TAGS['vegetable_level']['values'][$entry['vegetable_level']];
     }
+    if ($entry['child_factor'] === 'acquired_taste') {
+        $hints['child_alternative'] = 'Alternative für Kinder';
+    }
     $until = fresh_until($entry['shelf_life'], week_start($date));
-    if ($until !== null && $date > $until) {
+    if (!$leftovers && $until !== null && $date > $until) {
         $hints["not_fresh_{$entry['shelf_life']}"] = 'Zutaten evtl. nicht mehr frisch';
     }
     return $hints;
