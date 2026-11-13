@@ -35,7 +35,8 @@ src/                  PHP code: app.php (helpers, config, DB, session), calendar
                       test_data.php (test meals with ingredients and week blueprints, loaded into an empty DB if config.php has load_test_data = true)
 templates/            HTML templates
 db/schema.sql         Database schema (SSOT)
-data/                 db.sqlite, sessions/ (gitignored, created at runtime; location set by data_dir in config.php)
+bin/backup.php        Daily database backup, run by a scheduled task (README.md#backups)
+data/                 db.sqlite, sessions/, backups/ (gitignored, created at runtime; location set by data_dir in config.php)
 tests/smoke.php       Smoke tests
 router.php            Router for the PHP built-in dev server
 config.example.php    Config layout (SSOT); copy to config.php (gitignored)

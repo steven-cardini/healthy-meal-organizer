@@ -491,6 +491,36 @@ $noteDb = open_db("$tmp/notedata");
 save_blueprint_slot($noteDb, 1, 1, 'lunch', null, 'Eltern kochen');
 check('test data is not loaded if a week blueprint has only a note', !load_test_data_if_empty($noteDb));
 
+// --- Backup --------------------------------------------------------------------
+
+$backupConfig = "$tmp/backup-config.php";
+file_put_contents($backupConfig, '<?php return ' . var_export(['password_hash' => 'x', 'data_dir' => "$tmp/backup"], true) . ';');
+
+/** Runs bin/backup.php on $date and returns its exit code. */
+function run_backup(string $config, string $date): int
+{
+    $process = proc_open([PHP_BINARY, ROOT_DIR . '/bin/backup.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+        $pipes, null, ['MENUPLAN_CONFIG' => $config, 'MENUPLAN_NOW' => "$date 03:00"]);
+    return proc_close($process);
+}
+
+check('backup fails without a database and does not create one',
+    run_backup($backupConfig, '2026-11-01') !== 0 && !file_exists("$tmp/backup/db.sqlite"));
+$backupDb = open_db("$tmp/backup");
+create_meal($backupDb, meal_input('Rösti'));
+$exitCodes = array_map(fn(int $day): int => run_backup($backupConfig, sprintf('2026-11-%02d', $day)), range(1, 16));
+$expectedBackups = array_map(fn(int $day): string => sprintf('db-2026-11-%02d.sqlite', $day), range(3, 16));
+check('daily backups keep the last 14', array_unique($exitCodes) === [0]
+    && array_map('basename', glob("$tmp/backup/backups/*")) === $expectedBackups);
+$backupDb->exec('BEGIN IMMEDIATE');
+create_meal($backupDb, meal_input('Fondue'));
+$exitCode = run_backup($backupConfig, '2026-11-16');
+$backupDb->exec('COMMIT');
+$copy = new PDO("sqlite:$tmp/backup/backups/db-2026-11-16.sqlite");
+check('backup during a write keeps the committed data only and replaces the backup of the same day', $exitCode === 0
+    && schema_version($copy) === SCHEMA_VERSION && $copy->query('SELECT name FROM meal')->fetchAll(PDO::FETCH_COLUMN) === ['Rösti']
+    && array_map('basename', glob("$tmp/backup/backups/*")) === $expectedBackups);
+
 // --- HTTP ----------------------------------------------------------------------
 
 // Today at noon: lunch is not past yet.

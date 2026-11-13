@@ -2,7 +2,7 @@
 
 Web app (PWA) for one household that shows what is cooked today and this week, each planned from two alternating week blueprints. See [docs/requirements.md](docs/requirements.md).
 
-Requirements: PHP 8.5 with `pdo_sqlite` and `mbstring`; Apache with `mod_rewrite` (production).
+Requirements: PHP 8.5 with `pdo_sqlite`, `sqlite3` and `mbstring`; Apache with `mod_rewrite` (production).
 
 ## Setup
 
@@ -36,8 +36,23 @@ php tests/smoke.php
 
 1. Set the web server's document root to the `public/` folder. The root `.htaccess` denies everything as a safety net in case the document root points at the repository root.
 2. Upload `config.php` next to `config.example.php`, then deploy the code.
-3. Make sure `data/` (or the configured `data_dir`) is writable by PHP, survives deployments, and is backed up.
-4. Check once: `http://` redirects to `https://`, and `https://` pages load without a redirect loop.
+3. Make sure `data/` (or the configured `data_dir`) is writable by PHP and survives deployments.
+4. Set up the [backup](#backups).
+5. Check once: `http://` redirects to `https://`, and `https://` pages load without a redirect loop.
+
+## Backups
+
+A scheduled task (cron) runs this daily, as the same user as PHP:
+
+```sh
+php bin/backup.php
+```
+
+It copies the database to `data/backups/db-YYYY-MM-DD.sqlite` (in the configured `data_dir`) and keeps the last 14 copies. It prints nothing on success; on failure it exits with an error.
+
+To restore: while nobody uses the app, replace `db.sqlite` with a copy.
+
+## Maintenance
 
 To log out all devices: change `password_hash` and delete `data/sessions/*`.
 
