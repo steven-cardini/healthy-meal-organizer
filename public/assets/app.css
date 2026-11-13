@@ -399,7 +399,7 @@ article.meal-time h2 {
 .tag-protein_source-legumes { --icon: "\1FAD8"; }
 .tag-protein_source-egg { --icon: "\1F95A"; }
 .tag-protein_source-dairy_cheese { --icon: "\1F9C0"; }
-.tag-protein_source-vegan_tofu { --icon: "\1F331"; }
+.tag-protein_source-tofu_meat_substitute { --icon: "\1F331"; }
 .tag-protein_source-none { --icon: "\26A0\FE0F"; }
 .tag-heaviness-light { --icon: "\1FAB6"; }
 .tag-heaviness-medium { --icon: "\2696\FE0F"; }

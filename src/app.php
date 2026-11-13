@@ -20,7 +20,7 @@ const MEAL_TIMES_SHORT = ['lunch' => 'Mittag', 'dinner' => 'Abend'];
 const MEAL_TAGS = [
     'protein_source' => ['label' => 'Proteinquelle', 'values' => [
         'meat' => 'Fleisch', 'poultry' => 'Geflügel', 'fish' => 'Fisch', 'legumes' => 'Hülsenfrüchte',
-        'egg' => 'Ei', 'dairy_cheese' => 'Milchprodukte/Käse', 'vegan_tofu' => 'Tofu/Seitan',
+        'egg' => 'Ei', 'dairy_cheese' => 'Milchprodukte/Käse', 'tofu_meat_substitute' => 'Tofu & Fleischersatz',
         'none' => 'Keine Proteinquelle',
     ]],
     'heaviness' => ['label' => 'Bekömmlichkeit', 'values' => [

@@ -8,7 +8,7 @@ CREATE TABLE meal (
     name            TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 100),
     name_key        TEXT NOT NULL UNIQUE,
     protein_source  TEXT NOT NULL CHECK (protein_source IN
-                        ('meat', 'poultry', 'fish', 'legumes', 'egg', 'dairy_cheese', 'vegan_tofu', 'none')),
+                        ('meat', 'poultry', 'fish', 'legumes', 'egg', 'dairy_cheese', 'tofu_meat_substitute', 'none')),
     heaviness       TEXT NOT NULL CHECK (heaviness IN ('light', 'medium', 'heavy')),
     prep_time       TEXT NOT NULL CHECK (prep_time IN ('quick', 'medium', 'slow')),
     child_factor    TEXT NOT NULL CHECK (child_factor IN ('high_flyer', 'deconstructed', 'acquired_taste')),
