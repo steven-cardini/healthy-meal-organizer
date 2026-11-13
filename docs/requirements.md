@@ -116,7 +116,7 @@ The groceries for a week are ordered on Wednesday or Thursday before it. Before 
 
 - **FR-27** A meal has zero or more ingredients, each only a name (no quantity, e.g. *Hackfleisch*). In the meal form, each ingredient is a row with name and category; *+ Zutat* adds a row, an empty name removes it. Names already used are suggested, except those already entered for the meal. Ingredient names are compared case-insensitively; a name entered twice for a meal counts once.
 - **FR-28** Each ingredient name has one category, which applies to all meals using it. It is chosen when the name is used for the first time; for a known name it is selected automatically, or can stay empty. Changing it changes it for all meals. Categories, in this order: *Früchte & Gemüse*, *Fleisch & Fisch*, *Milchprodukte, Eier & frische Fertiggerichte*, *Brot & Backwaren*, *Pasta, Würzmittel & Konserven*, *Snacks & Süssigkeiten*, *Tiefkühlprodukte*, *Getränke, Kaffee & Tee*, *Wein, Bier & Spirituosen*, *Sonstige*.
-- **FR-29** A meal has an optional recipe link (an `http` or `https` URL). In the day view, the *⋯* menu of a meal shows its ingredients (*Zutaten:*) and the recipe link (*Rezept*, opening in a new tab), also for slots that cannot be changed (FR-17); then it has no other actions.
+- **FR-29** A meal has an optional recipe link (an `http` or `https` URL). In the day view, the *⋯* menu of a meal offers *Zutaten*, which opens a popup with its ingredients grouped by category in the order of FR-28, and the recipe link (*Rezept*, opening in a new tab), also for slots that cannot be changed (FR-17); then it has no other actions.
 - **FR-30** The meal list marks meals without ingredients (*Keine Zutaten*).
 
 ### Grocery list

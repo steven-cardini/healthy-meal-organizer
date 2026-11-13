@@ -1,6 +1,6 @@
 // Online only (docs/architecture.md#pwa): the cache is used only when the network fails.
 // Bump the version when a file in PRECACHE changes.
-const CACHE = 'menuplan-v13';
+const CACHE = 'menuplan-v14';
 const OFFLINE_PAGE = '/offline.html';
 const PRECACHE = [OFFLINE_PAGE, '/assets/app.css', '/assets/icons/icon.svg'];
 

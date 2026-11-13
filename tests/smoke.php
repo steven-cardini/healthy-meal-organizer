@@ -159,6 +159,10 @@ $soupId = create_meal($db, meal_input('Suppe') + ['recipe_url' => ' https://exam
     ['name' => ' Karotten ', 'category' => 'fruit_vegetables'], ['name' => '', 'category' => ''],
     ['name' => 'Lauch', 'category' => 'fruit_vegetables'], ['name' => 'KAROTTEN', 'category' => 'other']]]);
 $soup = find_meal($db, $soupId);
+check('ingredients by category: order of the categories, then of the meal form', ingredients_by_category([
+    ['name' => 'Butter', 'category' => 'dairy_eggs_ready_meals'], ['name' => 'Lauch', 'category' => 'fruit_vegetables'],
+    ['name' => 'Karotten', 'category' => 'fruit_vegetables']]) === ['fruit_vegetables' => ['Lauch', 'Karotten'],
+    'dairy_eggs_ready_meals' => ['Butter']] && ingredients_by_category([]) === []);
 check('meal with recipe link and ingredients: trimmed, empty and repeated names dropped, order kept',
     $soup['recipe_url'] === 'https://example.com/suppe' && array_column($soup['ingredients'], 'name') === ['Karotten', 'Lauch']
     && array_column($soup['ingredients'], 'category') === ['fruit_vegetables', 'fruit_vegetables']);
@@ -795,14 +799,20 @@ check('edit form shows the saved ingredients with their category, suggestions an
         . '<option value="dairy_eggs_ready_meals" selected>~s', $edit)
     && str_contains($edit, 'value="https://example.com/rösti?a=1&amp;b=2"') && str_contains($edit, '<option value="Butter &lt;b&gt;" data-category="dairy_eggs_ready_meals"></option>'));
 check('meal list: no mark once a meal has ingredients', !str_contains(request('GET', '/meals')['body'], 'Keine Zutaten'));
-check('day view: ingredients and recipe link (new tab) in the ⋯ menu', (bool)preg_match('~<details class="slot-menu">\s*'
+$today = request('GET', '/')['body'];
+check('day view: ingredients button and recipe link (new tab) in the ⋯ menu', (bool)preg_match('~<details class="slot-menu">\s*'
     . '<summary aria-label="Mehr zum Mittagessen"></summary>\s*<div class="slot-actions">\s*'
-    . '<p class="ingredients"><strong>Zutaten:</strong> Kartoffeln, Butter &lt;b&gt;</p>\s*'
+    . '<button type="button" class="ingredients" popovertarget="ingredients-lunch">Zutaten</button>\s*'
     . '<a href="https://example.com/rösti\?a=1&amp;b=2" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>\s*'
-    . '<a href="[^"]*" class="swap">~', request('GET', '/')['body']));
+    . '<a href="[^"]*" class="swap">~', $today));
+check('day view: ingredients popup grouped by category', (bool)preg_match('~</details>\s*'
+    . '<div id="ingredients-lunch" class="ingredients-popup" popover>\s*<h3>Zutaten für Rösti</h3>\s*'
+    . '<h4>Früchte &amp; Gemüse</h4>\s*<ul>\s*<li>Kartoffeln</li>\s*</ul>\s*'
+    . '<h4>Milchprodukte, Eier &amp; frische Fertiggerichte</h4>\s*<ul>\s*<li>Butter &lt;b&gt;</li>\s*</ul>\s*'
+    . '<button type="button" popovertarget="ingredients-lunch" popovertargetaction="hide">Schliessen</button>~', $today));
 $laterDay = request('GET', '/?date=' . add_days(today(), 14)->format('Y-m-d'))['body'];
 check('day view: slot that cannot be changed has a ⋯ menu with ingredients and recipe link only',
-    substr_count($laterDay, '<details class="slot-menu">') === 1 && str_contains($laterDay, 'Zutaten:</strong> Kartoffeln')
+    substr_count($laterDay, '<details class="slot-menu">') === 1 && str_contains($laterDay, 'popovertarget="ingredients-lunch"') && str_contains($laterDay, '<li>Kartoffeln</li>')
     && str_contains($laterDay, 'class="recipe"') && !str_contains($laterDay, 'class="swap"') && !str_contains($laterDay, 'class="skip"'));
 $groceries = request('GET', '/grocery-list');
 check('grocery list of the current week (planned), linked from the week view', $groceries['status'] === 200

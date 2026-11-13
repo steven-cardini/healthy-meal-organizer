@@ -16,7 +16,7 @@
         <?php
         $actions = $swappable[$mealTime];
         $recipeUrl = $entry['recipe_url'] ?? null;
-        $mealIngredients = array_column($entry['meal_id'] === null ? [] : $ingredients[$entry['meal_id']], 'name');
+        $mealIngredients = ingredients_by_category($entry['meal_id'] === null ? [] : $ingredients[$entry['meal_id']]);
         ?>
         <?php if ($actions || $recipeUrl !== null || $mealIngredients !== []): ?>
             <?php

@@ -2,13 +2,13 @@
 declare(strict_types=1);
 
 // The ⋯ menu of a slot (D-36, D-54). Needs $date, $mealTime, $entry, $swap (false: planning), $menuLabel, $resetWarning,
-// $actions (show the swap or planning actions), $recipeUrl, $mealIngredients (names, day view only).
+// $actions (show the swap or planning actions), $recipeUrl, $mealIngredients (ingredients_by_category(), day view only).
 ?>
 <details class="slot-menu">
     <summary aria-label="<?= e($menuLabel) ?>"></summary>
     <div class="slot-actions">
         <?php if ($mealIngredients !== []): ?>
-            <p class="ingredients"><strong>Zutaten:</strong> <?= e(implode(', ', $mealIngredients)) ?></p>
+            <button type="button" class="ingredients" popovertarget="ingredients-<?= e($mealTime) ?>">Zutaten</button>
         <?php endif ?>
         <?php if ($recipeUrl !== null): ?>
             <a href="<?= e($recipeUrl) ?>" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>
@@ -35,3 +35,17 @@ declare(strict_types=1);
         <?php endif ?>
     </div>
 </details>
+<?php if ($mealIngredients !== []): ?>
+    <div id="ingredients-<?= e($mealTime) ?>" class="ingredients-popup" popover>
+        <h3>Zutaten für <?= e($entry['meal']) ?></h3>
+        <?php foreach ($mealIngredients as $category => $names): ?>
+            <h4><?= e(INGREDIENT_CATEGORIES[$category]) ?></h4>
+            <ul>
+                <?php foreach ($names as $name): ?>
+                    <li><?= e($name) ?></li>
+                <?php endforeach ?>
+            </ul>
+        <?php endforeach ?>
+        <button type="button" popovertarget="ingredients-<?= e($mealTime) ?>" popovertargetaction="hide">Schliessen</button>
+    </div>
+<?php endif ?>

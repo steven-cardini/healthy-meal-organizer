@@ -386,6 +386,20 @@ function grocery_list(array $entries, array $ingredients): array
     return ['categories' => $categories, 'without' => $without];
 }
 
+/**
+ * Ingredient names of a meal by category, categories in the order of FR-28, names in the order of the meal form.
+ * $ingredients: load_ingredients() of the meal.
+ * @return array<string, list<string>> category => names
+ */
+function ingredients_by_category(array $ingredients): array
+{
+    $groups = array_fill_keys(array_keys(INGREDIENT_CATEGORIES), []);
+    foreach ($ingredients as $ingredient) {
+        $groups[$ingredient['category']][] = $ingredient['name'];
+    }
+    return array_filter($groups);
+}
+
 /** e.g. "Spaghetti Bolognese 2×, Lasagne". $meals: see grocery_list(). */
 function grocery_meals_text(array $meals): string
 {
