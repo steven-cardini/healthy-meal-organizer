@@ -18,7 +18,7 @@
 | D-14 | Week blueprint editor: one form per slot with a choice *Gericht* / *Notiz* and one text field with suggestions. An empty field empties the slot. | Works without JavaScript; saving one slot keeps "last save wins" per slot. Rejected: a third choice "leer" (users could type a name and save it as empty by mistake); one form for all 28 slots (overwrites other people's edits). |
 | D-15 | Renaming a meal to the name of another meal is rejected with an error. | Simple. Rejected: merging the two meals. |
 | D-16 | Meal names are unique via a lowercase `name_key` column. | SQLite `NOCASE` only folds ASCII, so "Älplermagronen" and "älplermagronen" would both be accepted. |
-| D-17 | Schema version in `PRAGMA user_version`. | Later phases can migrate the production database instead of recreating it. |
+| D-17 | Schema version in `PRAGMA user_version`. A database with another version than `SCHEMA_VERSION` is refused. | Later phases can migrate the production database instead of recreating it. An outdated schema is never used silently. |
 | D-18 | Meal tags (FR-13) are one `NOT NULL` column per tag on `meal`, with a `CHECK` on the allowed values. The table stays `meal`. | The database enforces "exactly one value per tag". Rejected: a generic tag table (`type`, `value`), which cannot enforce this; renaming to `recipe` (in the glossary, a recipe is ingredients and steps). |
 | D-19 | A meal can only be created with all tags. A new name in the week blueprint editor redirects to the new meal form; after saving, the slot is filled. | Mandatory tags. Rejected: creating meals without tags; an error message with a link (one more click). |
 | D-20 | Prep time is a category (`quick`, `medium`, `slow`), not minutes. | Enough for planning and for finding quicker meals. Rejected: `prep_minutes`. |
@@ -55,11 +55,10 @@
 
 ## Open points (before or during implementation)
 
-- **Deployment of phase 5:** `ingredient`, `meal_ingredient` and `meal.recipe_url` are added to schema version 1 without a migration, as production holds only test data. Delete `data/db.sqlite` on the server once after deploying phase 5. From then on, the database holds real data and schema changes need migrations (D-17).
+- **Migrations:** schema changes need migrations (D-17). With the first one: run each migration in a transaction, after a backup, tested on a copy of an old database (every push deploys to production).
 
 Before production holds real data (the database can still be deleted until then):
 
-- **Backups:** no backup is set up yet (`README.md` only says `data/` must be backed up). Check that `data/` survives a deployment, or move `data_dir` outside the deployed folder. Add a daily consistent copy, e.g. a scheduled PHP script using `SQLite3::backup()` (works with the host's older SQLite).
+- **Backups:** no backup is set up yet. `data/` survives deployments, but is probably not backed up by the host. Add a daily consistent copy, e.g. a scheduled PHP script using `SQLite3::backup()` (works with the host's older SQLite).
 - **Data needed by phase 6:** all tags are mandatory without a default (FR-13), so a new tag or a split tag value means editing every meal again. Decide before entering the meal list whether phase 6 needs e.g. processed meat apart from `meat` (Swiss recommendations limit it separately) or a tag for the starch source (wholegrain). Also: deleting a meal removes it from past dates (FR-21), which phase 6 is meant to use.
-- **Schema version check:** `open_db()` applies `db/schema.sql` only when `user_version` is 0. If `schema.sql` gets a new version without a migration, an existing database silently keeps the old schema. Cheap now: refuse to run if the version differs from the expected one, with a smoke test. With the first migration: run each migration in a transaction, after a backup, tested on a copy of an old database (every push deploys to production).
 - **Reset of production:** set `load_test_data` to `false`, then delete `db.sqlite`. The first logged-in request fixes the current week as *Woche 1*, which keeps following the week blueprints (FR-25), so reset right before entering the real week blueprints.

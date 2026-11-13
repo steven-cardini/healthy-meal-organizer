@@ -115,7 +115,7 @@ Conceptual only. The SSOT is `db/schema.sql`.
 
 Meal names, ingredient names and notes are trimmed, and runs of whitespace are collapsed to one space. The meal list and the grocery list are sorted with accented letters treated like their base letter (`ä` like `a`).
 
-Schema version: `PRAGMA user_version` (currently 1; the meal tags, `date_slot`, `week` and the ingredients were added to version 1 while production held only test data, so databases created earlier must be deleted once). The schema is applied when the version is 0. Later phases add migrations from one version to the next, so the production database never has to be deleted.
+Schema version: `PRAGMA user_version`, expected to be `SCHEMA_VERSION` (`src/app.php`, currently 1). The schema is applied when the version is 0; any other version than `SCHEMA_VERSION` is refused (error 500, logged). Later phases add migrations from one version to the next, so the production database never has to be deleted.
 
 ## Weeks and week blueprints
 

@@ -8,6 +8,8 @@ require __DIR__ . '/pages.php';
 require __DIR__ . '/test_data.php';
 
 const ROOT_DIR = __DIR__ . '/..';
+/** Same as PRAGMA user_version in db/schema.sql. */
+const SCHEMA_VERSION = 1;
 const SESSION_LIFETIME = 180 * 86400;
 const MAX_TEXT_LENGTH = 100;
 const MEAL_TIMES = ['lunch' => 'Mittagessen', 'dinner' => 'Abendessen'];
@@ -100,6 +102,10 @@ function open_db(string $dataDir): PDO
             $db->exec(file_get_contents(ROOT_DIR . '/db/schema.sql'));
         }
         $db->exec('COMMIT');
+    }
+    $version = schema_version($db);
+    if ($version !== SCHEMA_VERSION) {
+        throw new RuntimeException("Database schema version $version, expected " . SCHEMA_VERSION);
     }
     return $db;
 }

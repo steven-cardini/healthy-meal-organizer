@@ -88,8 +88,11 @@ check('today uses Europe/Zurich',
 // --- Database ----------------------------------------------------------------
 
 $db = open_db("$tmp/unit");
-check('schema created with version 1', schema_version($db) === 1);
-check('reopening keeps the schema', schema_version(open_db("$tmp/unit")) === 1);
+check('schema created with SCHEMA_VERSION', schema_version($db) === SCHEMA_VERSION);
+check('reopening keeps the schema', schema_version(open_db("$tmp/unit")) === SCHEMA_VERSION);
+$otherVersionDb = open_db("$tmp/version");
+$otherVersionDb->exec('PRAGMA user_version = ' . (SCHEMA_VERSION + 1));
+check('database with another schema version is refused', throws(fn() => open_db("$tmp/version"), RuntimeException::class));
 check('text is trimmed and whitespace collapsed', clean_text("  Älpler\t magronen \n") === 'Älpler magronen');
 check('text over 100 characters is rejected', throws(fn() => clean_text(str_repeat('ä', 101)), UserError::class));
 check('invalid UTF-8 is rejected', throws(fn() => clean_text("\xff"), UserError::class));
