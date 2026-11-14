@@ -263,6 +263,7 @@ check('lunch and dinner the same: cook double for the evening, vegetable side di
     && slot_hints($hintEntries, $d('2026-01-19'), 'dinner') === ['leftovers' => 'Reste vom Mittagessen']);
 check('no hints for a neighbour outside the loaded dates', slot_hints(load_entries($hintDb, $d('2026-01-16'), $d('2026-01-16')),
     $d('2026-01-16'), 'dinner') === ['slow' => 'Lange Zubereitung']);
+putenv('MENUPLAN_NOW=2026-01-15 12:00');
 check('week view: hints below the meal, no tags', slot_html($hintEntries, $d('2026-01-16'), 'dinner', 'week') === '<p class="meal-name">Suppe</p>'
     . '<ul class="hints" aria-label="Hinweise"><li class="hint-cook_double">Doppelte Menge für morgen Mittag</li>'
     . '<li class="hint-slow">Lange Zubereitung</li></ul>');
@@ -272,7 +273,11 @@ check('day view: protein avatar, summary tags with label and icon class, hints',
     && str_contains($dayHtml, '<span role="listitem" class="tag-prep_time-slow"><span class="visually-hidden">'
         . 'Zubereitungszeit: </span>Lang (&gt; 40 Min.)</span>')
     && substr_count($dayHtml, '<span role="listitem" class="tag-') === count(SUMMARY_TAGS)
-    && str_contains($dayHtml, '<li class="hint-slow">Lange Zubereitung</li>'));
+    && str_contains($dayHtml, '<li class="hint-cook_double">Doppelte Menge für morgen Mittag</li>')
+    && !str_contains($dayHtml, 'hint-slow'));
+putenv('MENUPLAN_NOW=2026-01-17 12:00');
+check('past slot: no hints', slot_html($hintEntries, $d('2026-01-16'), 'dinner', 'week') === '<p class="meal-name">Suppe</p>'
+    && !str_contains(slot_html($hintEntries, $d('2026-01-16'), 'dinner', 'day'), 'hints'));
 $fish = create_meal($hintDb, meal_input('Fisch', ['shelf_life' => 'short', 'leftovers' => 'eat_fresh']));
 $chicken = create_meal($hintDb, meal_input('Poulet', ['shelf_life' => 'medium', 'leftovers' => 'eat_fresh']));
 save_blueprint_slot($hintDb, 1, 3, 'lunch', $fish, null);        // Mon 2026-01-19: keeps until Monday
@@ -302,7 +307,7 @@ check('acquired taste: alternative for the children',
     && str_contains(slot_html($curryEntries, $d('2026-01-21'), 'dinner', 'day'), '<li class="hint-child_alternative">Alternative für Kinder</li>'));
 $hintKinds = fn(string $view): array => preg_match_all('/<li class="hint-(\w+)"/', slot_html($curryEntries, $d('2026-01-21'), 'dinner', $view), $m) ? $m[1] : [];
 check('hints per view: cooking (day), looking ahead (week), deciding (planning)',
-    $hintKinds('day') === ['cook_double', 'slow', 'raw_veggies_needed', 'child_alternative']
+    $hintKinds('day') === ['cook_double', 'raw_veggies_needed', 'child_alternative']
     && $hintKinds('week') === ['cook_double', 'slow']
     && $hintKinds('planning') === ['cook_double', 'slow', 'not_fresh_short']);
 check('planning view: protein source with icon and text, no other tags',
@@ -312,6 +317,15 @@ check('planning view: protein source with icon and text, no other tags',
     && !str_contains(slot_html($curryEntries, $d('2026-01-21'), 'dinner', 'week'), 'class="tags"'));
 check('leftovers: only the hints for what is prepared fresh', slot_hints($curryEntries, $d('2026-01-22'), 'lunch')
     === ['leftovers' => 'Reste vom Vorabend', 'raw_veggies_needed' => 'Rohkost dazu', 'child_alternative' => 'Alternative für Kinder']);
+$upcomingAt = function (string $now, string $date) use ($curryEntries, $d): ?string {
+    putenv("MENUPLAN_NOW=$now");
+    $mealTime = upcoming_meal_time($curryEntries, $d($date));
+    putenv('MENUPLAN_NOW=2026-01-17 12:00');
+    return $mealTime;
+};
+check('next meal to cook: first slot with a meal that is not past', $upcomingAt('2026-01-21 13:59', '2026-01-21') === 'lunch'
+    && $upcomingAt('2026-01-21 14:00', '2026-01-21') === 'dinner' && $upcomingAt('2026-01-23 10:00', '2026-01-23') === 'dinner'
+    && $upcomingAt('2026-01-24 10:00', '2026-01-23') === null);
 $zopf = create_meal($hintDb, meal_input('Zopf', ['shelf_life' => 'long', 'leftovers' => 'reheats_well']) + ['advance_prep' => true]);
 save_blueprint_slot($hintDb, 2, 1, 'lunch', $zopf, null);        // Sat 2026-01-24 (Woche 2)
 save_blueprint_slot($hintDb, 2, 1, 'dinner', $zopf, null);
@@ -732,8 +746,7 @@ check('saving the new meal fills the slot', redirects_to(request('POST', '/meals
 $day = request('GET', '/');
 check('day view shows the meal (HTML-escaped) with tags and hints',
     str_contains($day['body'], '<p class="meal-name">Rösti &lt;script&gt;x&lt;/script&gt;</p><span class="tags"')
-    && str_contains($day['body'], '<ul class="hints" aria-label="Hinweise"><li class="hint-slow">Lange Zubereitung</li>'
-        . '<li class="hint-side_dish">Gemüsebeilage kochen</li></ul>')
+    && str_contains($day['body'], '<ul class="hints" aria-label="Hinweise"><li class="hint-side_dish">Gemüsebeilage kochen</li></ul>')
     && !str_contains($day['body'], '<script>x'));
 request('POST', '/week-blueprints/slot', ['csrf' => $token, 'blueprint' => 1, 'day' => $blueprintDay, 'meal_time' => 'dinner',
     'type' => 'note', 'text' => 'Eltern kochen']);
@@ -837,16 +850,28 @@ check('edit form shows the saved ingredients with their category, suggestions an
     && str_contains($edit, 'value="https://example.com/rösti?a=1&amp;b=2"') && str_contains($edit, '<option value="Butter &lt;b&gt;" data-category="dairy_eggs_ready_meals"></option>'));
 check('meal list: no mark once a meal has ingredients', !str_contains(request('GET', '/meals')['body'], 'Keine Zutaten'));
 $today = request('GET', '/')['body'];
-check('day view: ingredients button and recipe link (new tab) in the ⋯ menu', (bool)preg_match('~<details class="slot-menu">\s*'
-    . '<summary aria-label="Mehr zum Mittagessen"></summary>\s*<div class="slot-actions">\s*'
+check('day view: the next meal to cook shows ingredients button and recipe link (new tab), not in the ⋯ menu',
+    (bool)preg_match('~<div class="slot-actions">\s*'
     . '<button type="button" class="ingredients" popovertarget="ingredients-lunch">Zutaten</button>\s*'
     . '<a href="https://example.com/rösti\?a=1&amp;b=2" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>\s*'
-    . '<a href="[^"]*" class="swap">~', $today));
+    . '</div>\s*<details class="slot-menu">\s*<summary aria-label="Mehr zum Mittagessen"></summary>\s*<div class="slot-actions">\s*'
+    . '<a href="[^"]*" class="swap">~', $today) && substr_count($today, 'class="recipe"') === 1);
 check('day view: ingredients popup grouped by category', (bool)preg_match('~</details>\s*'
     . '<div id="ingredients-lunch" class="ingredients-popup" popover>\s*<h3>Zutaten für Rösti</h3>\s*'
     . '<h4>Früchte &amp; Gemüse</h4>\s*<ul>\s*<li>Kartoffeln</li>\s*</ul>\s*'
     . '<h4>Milchprodukte, Eier &amp; frische Fertiggerichte</h4>\s*<ul>\s*<li>Butter &lt;b&gt;</li>\s*</ul>\s*'
     . '<button type="button" popovertarget="ingredients-lunch" popovertargetaction="hide">Schliessen</button>~', $today));
+request('POST', '/meals/new', ['csrf' => $token] + meal_input('Salat'));
+$listOf = fn(string $ingredient): string => strstr(request('GET', swap_url('/swap', today(), 'lunch') . '&ingredient=' . urlencode($ingredient))['body'], '<section id="liste">');
+check('meal list filtered by ingredient, unknown ingredient ignored',
+    str_contains($listOf('Kartoffeln'), '<strong>Rösti</strong>') && !str_contains($listOf('Kartoffeln'), '<strong>Salat</strong>')
+    && str_contains($listOf('Kartoffeln'), '<option value="Kartoffeln" selected>Kartoffeln</option>')
+    && str_contains($listOf('Kartoffeln'), '<option value="Butter &lt;b&gt;">Butter &lt;b&gt;</option>')
+    && str_contains($listOf('Unbekannt'), '<strong>Salat</strong>') && !str_contains($listOf('Unbekannt'), ' selected>')
+    && str_contains($listOf('kartoffeln'), '<strong>Salat</strong>'));
+preg_match('~href="/meals/edit\?id=(\d+)">(?:(?!</a>).)*<strong>Salat~s', request('GET', '/meals')['body'], $match);
+request('POST', '/meals/delete', ['csrf' => $token, 'id' => $match[1] ?? '0']);
+check('meal for the ingredient filter deleted again', !str_contains(request('GET', '/meals')['body'], 'Salat'));
 $laterDay = request('GET', '/?date=' . add_days(today(), 14)->format('Y-m-d'))['body'];
 check('day view: slot that cannot be changed has a ⋯ menu with ingredients and recipe link only',
     substr_count($laterDay, '<details class="slot-menu">') === 1 && str_contains($laterDay, 'popovertarget="ingredients-lunch"') && str_contains($laterDay, '<li>Kartoffeln</li>')
@@ -960,6 +985,11 @@ preg_match('~href="/meals/edit\?id=(\d+)">\s*<span class="avatar[^"]*"[^>]*></sp
     request('GET', '/meals')['body'], $match);
 $pastaId = $match[1] ?? '0';
 request('POST', '/swap/meal', $slotInput('dinner') + ['meal_id' => $pastaId]);
+request('POST', '/meals/edit', ['csrf' => $token, 'id' => $pastaId] + meal_input('Pasta', ['protein_source' => 'fish', 'shelf_life' => 'long'])
+    + ['recipe_url' => 'https://example.com/pasta']);
+check('day view: the next meal to cook skips slots without a meal', (bool)preg_match('~<em class="note">Besuch.*?<details class="slot-menu">'
+    . '.*?<div class="slot-actions">\s*<a href="https://example.com/pasta" class="recipe"[^>]*>Rezept</a>\s*</div>\s*<details class="slot-menu">~s',
+    request('GET', '/')['body']));
 check('meal swapped in this week cannot be deleted',
     redirects_to(request('POST', '/meals/delete', ['csrf' => $token, 'id' => $pastaId]), "/meals/edit?id=$pastaId")
     && str_contains(request('GET', "/meals/edit?id=$pastaId")['body'], 'ab heute eingeplant'));

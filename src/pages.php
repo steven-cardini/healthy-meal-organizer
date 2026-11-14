@@ -36,6 +36,7 @@ function day_page(PDO $db): never
         'swappable' => $swappable,
         'resetWarnings' => $resetWarnings,
         'ingredients' => $ingredients,
+        'upcoming' => $isToday ? upcoming_meal_time($entries, $date) : null,
         'advancePrep' => $date < $today ? [] : advance_prep_reminders($entries, $date),
         'previous' => add_days($date, -1),
         'next' => add_days($date, 1),
@@ -294,9 +295,14 @@ function swap_page(PDO $db): never
         $value = $_GET[$tag] ?? null;
         $filters[$tag] = is_string($value) && isset(MEAL_TAGS[$tag]['values'][$value]) ? $value : '';
     }
+    $ingredientNames = array_map('strval', array_keys(ingredient_categories($db)));
+    $ingredient = in_array($_GET['ingredient'] ?? null, $ingredientNames, true) ? $_GET['ingredient'] : '';
+    $mealIngredients = $ingredient === '' ? [] : load_ingredients($db);
     $meals = array_filter(list_meals($db), fn(array $meal): bool =>
         array_filter($filters, fn(string $value, string $tag): bool => $value !== '' && $meal[$tag] !== $value,
-            ARRAY_FILTER_USE_BOTH) === []);
+            ARRAY_FILTER_USE_BOTH) === []
+        && ($ingredient === ''
+            || in_array(name_key($ingredient), array_column($mealIngredients[$meal['id']] ?? [], 'name_key'), true)));
     // Planning: the ingredients are bought for the whole week (FR-20). A swap buys them on the spot.
     $meals = array_map(fn(array $meal): array => ['warning' => $swap ? null
         : move_warning(['meal' => $meal['name']] + $meal, week_start($date), $date)] + $meal, $meals);
@@ -307,6 +313,8 @@ function swap_page(PDO $db): never
         'entry' => $entry,
         'partners' => $partners,
         'filters' => $filters,
+        'ingredientNames' => $ingredientNames,
+        'ingredient' => $ingredient,
         'meals' => $meals,
         'warning' => $swap ? unused_warning($entry) : null,
     ], '');

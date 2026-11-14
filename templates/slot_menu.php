@@ -2,16 +2,13 @@
 declare(strict_types=1);
 
 // The ⋯ menu of a slot (D-36, D-54). Needs $date, $mealTime, $entry, $swap (false: planning), $menuLabel, $resetWarning,
-// $actions (show the swap or planning actions), $recipeUrl, $mealIngredients (ingredients_by_category(), day view only).
+// $actions (show the swap or planning actions), $links (show meal_links.php, day view only, with its variables).
 ?>
 <details class="slot-menu">
     <summary aria-label="<?= e($menuLabel) ?>"></summary>
     <div class="slot-actions">
-        <?php if ($mealIngredients !== []): ?>
-            <button type="button" class="ingredients" popovertarget="ingredients-<?= e($mealTime) ?>">Zutaten</button>
-        <?php endif ?>
-        <?php if ($recipeUrl !== null): ?>
-            <a href="<?= e($recipeUrl) ?>" class="recipe" target="_blank" rel="noopener noreferrer">Rezept</a>
+        <?php if ($links): ?>
+            <?php require __DIR__ . '/meal_links.php' ?>
         <?php endif ?>
         <?php if ($actions): ?>
             <a href="<?= e(swap_url('/swap', $date, $mealTime, $swap)) ?>" class="swap"><?= $entry['meal'] === null ? 'Gericht planen' : 'Anderes Gericht' ?></a>
@@ -35,17 +32,3 @@ declare(strict_types=1);
         <?php endif ?>
     </div>
 </details>
-<?php if ($mealIngredients !== []): ?>
-    <div id="ingredients-<?= e($mealTime) ?>" class="ingredients-popup" popover>
-        <h3>Zutaten für <?= e($entry['meal']) ?></h3>
-        <?php foreach ($mealIngredients as $category => $names): ?>
-            <h4><?= e(INGREDIENT_CATEGORIES[$category]) ?></h4>
-            <ul>
-                <?php foreach ($names as $name): ?>
-                    <li><?= e($name) ?></li>
-                <?php endforeach ?>
-            </ul>
-        <?php endforeach ?>
-        <button type="button" popovertarget="ingredients-<?= e($mealTime) ?>" popovertargetaction="hide">Schliessen</button>
-    </div>
-<?php endif ?>

@@ -64,6 +64,15 @@ $slotFields = '<input type="hidden" name="date" value="' . e($date->format('Y-m-
                 </select>
             </label>
         <?php endforeach ?>
+        <label class="ingredient-filter">
+            Zutat
+            <select name="ingredient">
+                <option value="">Alle</option>
+                <?php foreach ($ingredientNames as $name): ?>
+                    <option value="<?= e($name) ?>"<?= $ingredient === $name ? ' selected' : '' ?>><?= e($name) ?></option>
+                <?php endforeach ?>
+            </select>
+        </label>
         <button type="submit" class="secondary outline">Filtern</button>
     </form>
     <?php if ($meals === []): ?>

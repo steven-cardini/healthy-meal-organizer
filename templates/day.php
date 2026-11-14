@@ -17,14 +17,23 @@
         $actions = $swappable[$mealTime];
         $recipeUrl = $entry['recipe_url'] ?? null;
         $mealIngredients = ingredients_by_category($entry['meal_id'] === null ? [] : $ingredients[$entry['meal_id']]);
+        // The next meal to cook today shows its Zutaten and Rezept outside the ⋯ menu (D-54).
+        $hasLinks = $recipeUrl !== null || $mealIngredients !== [];
+        $links = $mealTime !== $upcoming;
         ?>
-        <?php if ($actions || $recipeUrl !== null || $mealIngredients !== []): ?>
+        <?php if (!$links && $hasLinks): ?>
+            <div class="slot-actions"><?php require __DIR__ . '/meal_links.php' ?></div>
+        <?php endif ?>
+        <?php if ($actions || ($links && $hasLinks)): ?>
             <?php
             $swap = true;
             $menuLabel = "Mehr zum $label";
             $resetWarning = $resetWarnings[$mealTime] ?? null;
             require __DIR__ . '/slot_menu.php';
             ?>
+        <?php endif ?>
+        <?php if ($mealIngredients !== []): ?>
+            <?php require __DIR__ . '/ingredients_popup.php' ?>
         <?php endif ?>
     </article>
 <?php endforeach ?>

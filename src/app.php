@@ -67,7 +67,8 @@ const SUMMARY_TAGS = ['protein_source', 'prep_time', 'child_factor'];
 
 /** Hint kinds (slot_hints()) per view: for cooking (day), looking ahead (week), deciding (planning, week blueprint editor). FR-14. */
 const VIEW_HINTS = [
-    'day' => ['leftovers', 'cook_double', 'advance_prep', 'slow', 'side_dish', 'raw_veggies_needed', 'child_alternative'],
+    // Without "slow": the prep time tag already says it.
+    'day' => ['leftovers', 'cook_double', 'advance_prep', 'side_dish', 'raw_veggies_needed', 'child_alternative'],
     'week' => ['leftovers', 'cook_double', 'advance_prep', 'slow'],
     'planning' => ['leftovers', 'cook_double', 'advance_prep', 'slow', 'not_fresh_short', 'not_fresh_medium'],
 ];
@@ -253,7 +254,7 @@ function asset_url(string $path): string
 }
 
 /**
- * HTML for a slot in $view (a key of VIEW_HINTS). $entries: see load_entries(), including the day before and after.
+ * HTML for a slot in $view (a key of VIEW_HINTS), without hints once past. $entries: see load_entries(), including the day before and after.
  * The day view adds the protein avatar and SUMMARY_TAGS, the planning view the protein source (docs/decisions.md D-25).
  */
 function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, string $view): string
@@ -270,7 +271,7 @@ function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, st
     }
     $name = '<p class="meal-name">' . e($entry['meal']) . ($entry['changed']
         ? ' <small class="swapped">' . ($entry['moved'] ? 'verschoben' : 'getauscht') . '</small>' : '') . '</p>';
-    $hints = hints_html($entries, $date, $mealTime, $view);
+    $hints = is_past($date, $mealTime) ? '' : hints_html($entries, $date, $mealTime, $view);
     return match ($view) {
         'day' => '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name
             . tags_html($entry, SUMMARY_TAGS, false) . '</div>' . $hints . '</div>',
@@ -349,6 +350,17 @@ function slot_hints(array $entries, DateTimeImmutable $date, string $mealTime): 
         $hints["not_fresh_{$entry['shelf_life']}"] = 'Zutaten evtl. verdorben';
     }
     return $hints;
+}
+
+/** Meal time of the next meal to cook on $date: the first slot with a meal that is not past (FR-29). */
+function upcoming_meal_time(array $entries, DateTimeImmutable $date): ?string
+{
+    foreach (array_keys(MEAL_TIMES) as $mealTime) {
+        if ($entries[$date->format('Y-m-d')][$mealTime]['meal'] !== null && !is_past($date, $mealTime)) {
+            return $mealTime;
+        }
+    }
+    return null;
 }
 
 /** e.g. "Vorarbeit für morgen Mittag: Pizza", for the meals of the day after $date (FR-34). $entries: see slot_html(). */

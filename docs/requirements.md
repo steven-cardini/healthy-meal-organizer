@@ -66,8 +66,8 @@ Phase 6 is only drafted, "Later" is not specified yet. Earlier phases must not b
 | `leftovers` | Reste | `reheats_well`: Gut aufwärmbar, `eat_fresh`: Frisch essen | Whether the **cooked** meal still tastes good when reheated the next day |
 | `vegetable_level` | Gemüse | `main_component`: Genug enthalten, `side_dish`: Gemüsebeilage kochen, `raw_veggies_needed`: Rohkost dazu | Whether the meal contains enough vegetables, and if not, what to add |
 
-- **FR-14** Hints below a meal, each with an icon and text. Each view shows only those that help there (D-25):
-  - Day view (cooking): all except *Zutaten evtl. verdorben*.
+- **FR-14** Hints below a meal, each with an icon and text. Each view shows only those that help there (D-25); past meal times (FR-4) show none:
+  - Day view (cooking): all except *Zutaten evtl. verdorben* and *Lange Zubereitung* (the prep time tag says it, FR-15).
   - Week view (looking ahead): *Doppelte Menge*, *Reste*, *Vorarbeit nötig*, *Lange Zubereitung*.
   - *Planen* (FR-22) and week blueprint editor (FR-7), deciding: those of the week view and *Zutaten evtl. verdorben*.
 
@@ -93,7 +93,7 @@ Use cases: "I would rather eat X today", "ingredient Y was discounted", "ingredi
   - *Anderes Gericht* (*Gericht planen* if the slot has no meal, e.g. a note):
     - *Gericht tauschen* (slot with a meal): exchange with a meal of the same week that is not past. The two slots exchange their meals. Only slots with a meal are offered, not those with the same meal.
     - *Gericht verschieben* (slot without a meal): move a meal of the same week that is not past to this slot. Its note is removed, and the other slot is then empty.
-    - Or a meal from the meal list (*Aus der Liste*), filtered by prep time and protein source, or a new meal (as in FR-8). Only this slot changes.
+    - Or a meal from the meal list (*Aus der Liste*), filtered by prep time, protein source and ingredient, or a new meal (as in FR-8). Only this slot changes.
   - *Auslassen*: only for a slot with a meal (FR-18).
   - *Zurücksetzen*: only for a swapped slot (FR-19).
 - **FR-18** *Auslassen* empties the slot for this date, with an optional note (e.g. "Spontaner Besuch bei den Grosseltern").
@@ -123,7 +123,7 @@ The groceries for a week are ordered on Wednesday or Thursday before it. Before 
 
 - **FR-27** A meal has zero or more ingredients, each only a name (no quantity, e.g. *Hackfleisch*). In the meal form, each ingredient is a row with name and category; *+ Zutat* adds a row, an empty name removes it. Names already used are suggested, except those already entered for the meal. Ingredient names are compared case-insensitively; a name entered twice for a meal counts once.
 - **FR-28** Each ingredient name has one category, which applies to all meals using it. It is chosen when the name is used for the first time; for a known name it is selected automatically, or can stay empty. Changing it changes it for all meals. Categories, in this order: *Früchte & Gemüse*, *Fleisch & Fisch*, *Milchprodukte, Eier & frische Fertiggerichte*, *Brot & Backwaren*, *Pasta, Würzmittel & Konserven*, *Snacks & Süssigkeiten*, *Tiefkühlprodukte*, *Getränke, Kaffee & Tee*, *Wein, Bier & Spirituosen*, *Sonstige*.
-- **FR-29** A meal has an optional recipe link (an `http` or `https` URL). In the day view, the *⋯* menu of a meal offers *Zutaten*, which opens a popup with its ingredients grouped by category in the order of FR-28, and the recipe link (*Rezept*, opening in a new tab), also for slots that cannot be changed (FR-17); then it has no other actions.
+- **FR-29** A meal has an optional recipe link (an `http` or `https` URL). In the day view, the *⋯* menu of a meal offers *Zutaten*, which opens a popup with its ingredients grouped by category in the order of FR-28, and the recipe link (*Rezept*, opening in a new tab), also for slots that cannot be changed (FR-17); then it has no other actions. On today's day view, the next meal to cook (the first slot with a meal that is not past) shows *Zutaten* and *Rezept* below the meal instead of in its *⋯* menu.
 - **FR-30** The meal list marks meals without ingredients (*Keine Zutaten*).
 
 ### Grocery list

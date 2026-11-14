@@ -56,7 +56,7 @@ config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 | GET      | `/week-blueprints` | Week blueprint editor                        |
 | POST     | `/week-blueprints/slot` | Save one slot                           |
 | GET      | `/meals`        | Meal list                                       |
-| GET      | `/swap`         | *Anderes Gericht* / *Gericht planen* for `?date=&meal_time=`; optional filters `?prep_time=&protein_source=`. The `/swap` routes plan when the date is in the next week and it is not planned yet, otherwise they swap |
+| GET      | `/swap`         | *Anderes Gericht* / *Gericht planen* for `?date=&meal_time=`; optional filters `?prep_time=&protein_source=&ingredient=` (an ingredient name as listed). The `/swap` routes plan when the date is in the next week and it is not planned yet, otherwise they swap |
 | POST     | `/swap/exchange`| Exchange the meals of two slots (`date`, `meal_time`, `partner_date`, `partner_meal_time`) |
 | POST     | `/swap/move`    | Move the meal of the partner slot to this slot without a meal (same fields) |
 | POST     | `/swap/meal`    | Put a meal from the meal list into the slot of a date |

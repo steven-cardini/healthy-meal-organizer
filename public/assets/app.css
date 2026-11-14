@@ -952,7 +952,7 @@ button.choice .warning {
 
 .filters {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr auto;
     gap: 0.5rem;
     align-items: end;
 }
@@ -971,7 +971,7 @@ button.choice .warning {
         grid-template-columns: 1fr 1fr;
     }
 
-    .filters button {
+    .filters :is(button, .ingredient-filter) {
         grid-column: 1 / -1;
     }
 }
