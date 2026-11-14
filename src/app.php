@@ -65,6 +65,13 @@ const ADVANCE_PREP_LABEL = 'Vorarbeit nötig';
 /** Tags shown in the day view and the meal list (docs/decisions.md D-25). */
 const SUMMARY_TAGS = ['protein_source', 'prep_time', 'child_factor'];
 
+/** Hint kinds (slot_hints()) per view: for cooking (day), looking ahead (week), deciding (planning, week blueprint editor). FR-14. */
+const VIEW_HINTS = [
+    'day' => ['leftovers', 'cook_double', 'advance_prep', 'slow', 'side_dish', 'raw_veggies_needed', 'child_alternative'],
+    'week' => ['leftovers', 'cook_double', 'advance_prep', 'slow'],
+    'planning' => ['leftovers', 'cook_double', 'advance_prep', 'slow', 'not_fresh_short', 'not_fresh_medium'],
+];
+
 /** Filters of the meal list in "Anderes Gericht" (FR-17). */
 const FILTER_TAGS = ['prep_time', 'protein_source'];
 
@@ -246,10 +253,10 @@ function asset_url(string $path): string
 }
 
 /**
- * HTML for a slot as shown in the day and week view. $entries: see load_entries(), including the day before and after.
- * $withTags: day view, adds the protein avatar and SUMMARY_TAGS (docs/decisions.md D-25).
+ * HTML for a slot in $view (a key of VIEW_HINTS). $entries: see load_entries(), including the day before and after.
+ * The day view adds the protein avatar and SUMMARY_TAGS, the planning view the protein source (docs/decisions.md D-25).
  */
-function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bool $withTags = false): string
+function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, string $view): string
 {
     $entry = $entries[$date->format('Y-m-d')][$mealTime];
     if ($entry['meal'] === null) {
@@ -263,26 +270,33 @@ function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bo
     }
     $name = '<p class="meal-name">' . e($entry['meal']) . ($entry['changed']
         ? ' <small class="swapped">' . ($entry['moved'] ? 'verschoben' : 'getauscht') . '</small>' : '') . '</p>';
+    $hints = hints_html($entries, $date, $mealTime, $view);
+    return match ($view) {
+        'day' => '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name
+            . tags_html($entry, SUMMARY_TAGS, false) . '</div>' . $hints . '</div>',
+        'planning' => $name . tags_html($entry, ['protein_source']) . $hints,
+        default => $name . $hints,
+    };
+}
+
+/** Hints of a slot with a meal that $view shows (VIEW_HINTS). $entries: see slot_html(). */
+function hints_html(array $entries, DateTimeImmutable $date, string $mealTime, string $view): string
+{
     $hints = '';
-    foreach (slot_hints($entries, $date, $mealTime) as $kind => $label) {
+    foreach (array_intersect_key(slot_hints($entries, $date, $mealTime), array_flip(VIEW_HINTS[$view])) as $kind => $label) {
         $hints .= '<li class="hint-' . e($kind) . '">' . e($label) . '</li>';
     }
-    $hints = $hints === '' ? '' : '<ul class="hints" aria-label="Hinweise">' . $hints . '</ul>';
-    if (!$withTags) {
-        return $name . $hints;
-    }
-    return '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name . tags_html($entry, false)
-        . '</div>' . $hints . '</div>';
+    return $hints === '' ? '' : '<ul class="hints" aria-label="Hinweise">' . $hints . '</ul>';
 }
 
 /**
- * Values of SUMMARY_TAGS with their icons, and after the prep time ADVANCE_PREP_LABEL if set and $withAdvancePrep (the day
+ * Values of $tags with their icons, and after the prep time ADVANCE_PREP_LABEL if set and $withAdvancePrep (the day
  * view shows it as a hint). $meal: row with these columns. Spans, as buttons allow no lists.
  */
-function tags_html(array $meal, bool $withAdvancePrep = true): string
+function tags_html(array $meal, array $tags = SUMMARY_TAGS, bool $withAdvancePrep = true): string
 {
     $items = '';
-    foreach (SUMMARY_TAGS as $tag) {
+    foreach ($tags as $tag) {
         $items .= '<span role="listitem" class="' . e(tag_class($tag, $meal[$tag])) . '"><span class="visually-hidden">'
             . e(MEAL_TAGS[$tag]['label']) . ': </span>' . e(MEAL_TAGS[$tag]['values'][$meal[$tag]]) . '</span>';
         if ($tag === 'prep_time' && $withAdvancePrep && $meal['advance_prep'] === 1) {
@@ -332,9 +346,40 @@ function slot_hints(array $entries, DateTimeImmutable $date, string $mealTime): 
     }
     $until = fresh_until($entry['shelf_life'], week_start($date));
     if (!$leftovers && $until !== null && $date > $until) {
-        $hints["not_fresh_{$entry['shelf_life']}"] = 'Zutaten evtl. nicht mehr frisch';
+        $hints["not_fresh_{$entry['shelf_life']}"] = 'Zutaten evtl. verdorben';
     }
     return $hints;
+}
+
+/** e.g. "Vorarbeit für morgen Mittag: Pizza", for the meals of the day after $date (FR-34). $entries: see slot_html(). */
+function advance_prep_reminders(array $entries, DateTimeImmutable $date): array
+{
+    $next = add_days($date, 1);
+    $reminders = [];
+    foreach (MEAL_TIMES_SHORT as $mealTime => $label) {
+        $entry = $entries[$next->format('Y-m-d')][$mealTime];
+        if ($entry['meal'] !== null && isset(slot_hints($entries, $next, $mealTime)['advance_prep'])) {
+            $reminders[] = "Vorarbeit für morgen $label: {$entry['meal']}";
+        }
+    }
+    return $reminders;
+}
+
+/**
+ * Entries of week blueprint $blueprint on the dates of the week starting on $weekStart, for the hints in the week blueprint
+ * editor. The day before and after come from the other week blueprint, as weeks alternate (FR-3). $blueprints: load_blueprints().
+ */
+function blueprint_entries(array $blueprints, int $blueprint, DateTimeImmutable $weekStart): array
+{
+    $entries = [];
+    for ($i = -1; $i <= 7; $i++) {
+        $date = add_days($weekStart, $i);
+        $source = $i >= 0 && $i <= 6 ? $blueprint : 3 - $blueprint;
+        foreach (array_keys(MEAL_TIMES) as $mealTime) {
+            $entries[$date->format('Y-m-d')][$mealTime] = $blueprints[$source][week_day($date)][$mealTime] ?? EMPTY_ENTRY;
+        }
+    }
+    return $entries;
 }
 
 /** Freshness warning if the meal of $entry moves from $from to a later date after its ingredients keep (FR-20). */

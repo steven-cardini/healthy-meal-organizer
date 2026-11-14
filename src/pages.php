@@ -36,6 +36,7 @@ function day_page(PDO $db): never
         'swappable' => $swappable,
         'resetWarnings' => $resetWarnings,
         'ingredients' => $ingredients,
+        'advancePrep' => $date < $today ? [] : advance_prep_reminders($entries, $date),
         'previous' => add_days($date, -1),
         'next' => add_days($date, 1),
     ], $isToday ? 'day' : '');
@@ -159,8 +160,13 @@ function complete_action(PDO $db): never
 
 function week_blueprints_page(PDO $db): never
 {
+    $blueprints = load_blueprints($db);
+    // Any week works for the hints, as they only depend on the day within the week.
+    $weekStart = next_week_start();
     render('week_blueprints', 'Wochenvorlagen bearbeiten', [
-        'blueprints' => load_blueprints($db),
+        'blueprints' => $blueprints,
+        'weekStart' => $weekStart,
+        'entries' => [1 => blueprint_entries($blueprints, 1, $weekStart), 2 => blueprint_entries($blueprints, 2, $weekStart)],
         'meals' => list_meals($db),
     ], 'planning');
 }
@@ -291,6 +297,9 @@ function swap_page(PDO $db): never
     $meals = array_filter(list_meals($db), fn(array $meal): bool =>
         array_filter($filters, fn(string $value, string $tag): bool => $value !== '' && $meal[$tag] !== $value,
             ARRAY_FILTER_USE_BOTH) === []);
+    // Planning: the ingredients are bought for the whole week (FR-20). A swap buys them on the spot.
+    $meals = array_map(fn(array $meal): array => ['warning' => $swap ? null
+        : move_warning(['meal' => $meal['name']] + $meal, week_start($date), $date)] + $meal, $meals);
     render('swap', $entry['meal'] === null ? 'Gericht planen' : 'Anderes Gericht', [
         'date' => $date,
         'mealTime' => $mealTime,

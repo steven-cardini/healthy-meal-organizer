@@ -263,10 +263,10 @@ check('lunch and dinner the same: cook double for the evening, vegetable side di
     && slot_hints($hintEntries, $d('2026-01-19'), 'dinner') === ['leftovers' => 'Reste vom Mittagessen']);
 check('no hints for a neighbour outside the loaded dates', slot_hints(load_entries($hintDb, $d('2026-01-16'), $d('2026-01-16')),
     $d('2026-01-16'), 'dinner') === ['slow' => 'Lange Zubereitung']);
-check('week view: hints below the meal, no tags', slot_html($hintEntries, $d('2026-01-16'), 'dinner') === '<p class="meal-name">Suppe</p>'
+check('week view: hints below the meal, no tags', slot_html($hintEntries, $d('2026-01-16'), 'dinner', 'week') === '<p class="meal-name">Suppe</p>'
     . '<ul class="hints" aria-label="Hinweise"><li class="hint-cook_double">Doppelte Menge für morgen Mittag</li>'
     . '<li class="hint-slow">Lange Zubereitung</li></ul>');
-$dayHtml = slot_html($hintEntries, $d('2026-01-16'), 'dinner', true);
+$dayHtml = slot_html($hintEntries, $d('2026-01-16'), 'dinner', 'day');
 check('day view: protein avatar, summary tags with label and icon class, hints', str_contains($dayHtml,
     '<span class="avatar tag-protein_source-meat" aria-hidden="true"></span>')
     && str_contains($dayHtml, '<span role="listitem" class="tag-prep_time-slow"><span class="visually-hidden">'
@@ -281,12 +281,15 @@ save_blueprint_slot($hintDb, 1, 6, 'dinner', $chicken, null);    // Thu 2026-01-
 save_blueprint_slot($hintDb, 1, 7, 'dinner', $chicken, null);    // Fri 2026-01-23
 save_date_slot($hintDb, true, $d('2026-01-21'), 'lunch', $fish, null);
 $freshEntries = load_entries($hintDb, $d('2026-01-18'), $d('2026-01-24'));
-$notFresh = fn(string $shelfLife): array => ["not_fresh_$shelfLife" => 'Zutaten evtl. nicht mehr frisch'];
+$notFresh = fn(string $shelfLife): array => ["not_fresh_$shelfLife" => 'Zutaten evtl. verdorben'];
 check('meal planned after its ingredients keep: hint, from the week blueprint or a swap',
     slot_hints($freshEntries, $d('2026-01-19'), 'lunch') === [] && slot_hints($freshEntries, $d('2026-01-20'), 'lunch') === $notFresh('short')
     && slot_hints($freshEntries, $d('2026-01-21'), 'lunch') === $notFresh('short')
     && slot_hints($freshEntries, $d('2026-01-22'), 'dinner') === [] && slot_hints($freshEntries, $d('2026-01-23'), 'dinner') === $notFresh('medium')
-    && str_contains(slot_html($freshEntries, $d('2026-01-20'), 'lunch'), '<li class="hint-not_fresh_short">Zutaten evtl. nicht mehr frisch</li>'));
+    && str_contains(slot_html($freshEntries, $d('2026-01-20'), 'lunch', 'planning'), '<li class="hint-not_fresh_short">Zutaten evtl. verdorben</li>'));
+check('freshness hint only when planning, not in the day and week view',
+    !str_contains(slot_html($freshEntries, $d('2026-01-20'), 'lunch', 'day'), 'not_fresh')
+    && !str_contains(slot_html($freshEntries, $d('2026-01-20'), 'lunch', 'week'), 'not_fresh'));
 $curry = create_meal($hintDb, meal_input('Curry', ['shelf_life' => 'short', 'leftovers' => 'reheats_well', 'prep_time' => 'slow',
     'vegetable_level' => 'raw_veggies_needed', 'child_factor' => 'acquired_taste']));
 save_blueprint_slot($hintDb, 1, 5, 'dinner', $curry, null);      // Wed 2026-01-21
@@ -295,8 +298,18 @@ $curryEntries = load_entries($hintDb, $d('2026-01-20'), $d('2026-01-23'));
 check('acquired taste: alternative for the children',
     slot_hints($curryEntries, $d('2026-01-21'), 'dinner') === ['cook_double' => 'Doppelte Menge für morgen Mittag',
         'slow' => 'Lange Zubereitung', 'raw_veggies_needed' => 'Rohkost dazu', 'child_alternative' => 'Alternative für Kinder',
-        'not_fresh_short' => 'Zutaten evtl. nicht mehr frisch']
-    && str_contains(slot_html($curryEntries, $d('2026-01-21'), 'dinner'), '<li class="hint-child_alternative">Alternative für Kinder</li>'));
+        'not_fresh_short' => 'Zutaten evtl. verdorben']
+    && str_contains(slot_html($curryEntries, $d('2026-01-21'), 'dinner', 'day'), '<li class="hint-child_alternative">Alternative für Kinder</li>'));
+$hintKinds = fn(string $view): array => preg_match_all('/<li class="hint-(\w+)"/', slot_html($curryEntries, $d('2026-01-21'), 'dinner', $view), $m) ? $m[1] : [];
+check('hints per view: cooking (day), looking ahead (week), deciding (planning)',
+    $hintKinds('day') === ['cook_double', 'slow', 'raw_veggies_needed', 'child_alternative']
+    && $hintKinds('week') === ['cook_double', 'slow']
+    && $hintKinds('planning') === ['cook_double', 'slow', 'not_fresh_short']);
+check('planning view: protein source with icon and text, no other tags',
+    str_contains(slot_html($curryEntries, $d('2026-01-21'), 'dinner', 'planning'), '<p class="meal-name">Curry</p>'
+        . '<span class="tags" role="list" aria-label="Eigenschaften"><span role="listitem" class="tag-protein_source-meat">'
+        . '<span class="visually-hidden">Proteinquelle: </span>Fleisch</span></span><ul class="hints"')
+    && !str_contains(slot_html($curryEntries, $d('2026-01-21'), 'dinner', 'week'), 'class="tags"'));
 check('leftovers: only the hints for what is prepared fresh', slot_hints($curryEntries, $d('2026-01-22'), 'lunch')
     === ['leftovers' => 'Reste vom Vorabend', 'raw_veggies_needed' => 'Rohkost dazu', 'child_alternative' => 'Alternative für Kinder']);
 $zopf = create_meal($hintDb, meal_input('Zopf', ['shelf_life' => 'long', 'leftovers' => 'reheats_well']) + ['advance_prep' => true]);
@@ -306,7 +319,19 @@ $zopfEntries = load_entries($hintDb, $d('2026-01-24'), $d('2026-01-24'));
 check('advance preparation: hint, but not for leftovers', slot_hints($zopfEntries, $d('2026-01-24'), 'lunch')
     === ['cook_double' => 'Doppelte Menge für den Abend', 'advance_prep' => 'Vorarbeit nötig']
     && slot_hints($zopfEntries, $d('2026-01-24'), 'dinner') === ['leftovers' => 'Reste vom Mittagessen']
-    && str_contains(slot_html($zopfEntries, $d('2026-01-24'), 'lunch'), '<li class="hint-advance_prep">Vorarbeit nötig</li>'));
+    && str_contains(slot_html($zopfEntries, $d('2026-01-24'), 'lunch', 'week'), '<li class="hint-advance_prep">Vorarbeit nötig</li>'));
+check('advance preparation: reminder the day before, not for leftovers',
+    advance_prep_reminders(load_entries($hintDb, $d('2026-01-22'), $d('2026-01-24')), $d('2026-01-23'))
+        === ['Vorarbeit für morgen Mittag: Zopf']
+    && advance_prep_reminders(load_entries($hintDb, $d('2026-01-21'), $d('2026-01-23')), $d('2026-01-22')) === []);
+$hintBlueprints = load_blueprints($hintDb);
+check('week blueprint editor hints: freshness, and the other week blueprint before and after',
+    str_contains(hints_html(blueprint_entries($hintBlueprints, 1, $d('2026-01-17')), $d('2026-01-20'), 'lunch', 'planning'),
+        '<li class="hint-not_fresh_short">Zutaten evtl. verdorben</li>')
+    && str_contains(hints_html(blueprint_entries($hintBlueprints, 1, $d('2026-01-17')), $d('2026-01-17'), 'lunch', 'planning'),
+        '<li class="hint-leftovers">Reste vom Vorabend</li>')
+    && str_contains(hints_html(blueprint_entries($hintBlueprints, 2, $d('2026-01-17')), $d('2026-01-23'), 'dinner', 'planning'),
+        '<li class="hint-cook_double">Doppelte Menge für morgen Mittag</li>'));
 
 // Swaps: week Saturday 2026-01-17 to Friday 2026-01-23 (first use, Woche 1), now is its Saturday noon.
 putenv('MENUPLAN_NOW=2026-01-17 12:00');
@@ -339,7 +364,7 @@ check('reset restores both slots of an exchange', $meals()['2026-01-19']['lunch'
 exchange_meals($swapDb, true, [$mon, 'lunch', $a], [$wed, 'lunch', $b]);
 save_date_slot($swapDb, true, $wed, 'lunch', null, null);
 check('skip without a note', $meals()['2026-01-21']['lunch'] === '*-'
-    && str_contains(slot_html($entries(), $wed, 'lunch'), '<em class="skipped">Ausgelassen</em>'));
+    && str_contains(slot_html($entries(), $wed, 'lunch', 'week'), '<em class="skipped">Ausgelassen</em>'));
 reset_date_slot($swapDb, true, $mon, 'lunch');
 check('reset after the partner changed again: also restores the partner', $meals()['2026-01-19']['lunch'] === 'A'
     && $meals()['2026-01-21']['lunch'] === 'B');
@@ -368,13 +393,13 @@ move_meal($swapDb, true, [$mon, 'dinner'], [$thu, 'lunch', $c]);
 check('move: the meal replaces the note, the other slot is empty', $meals()['2026-01-19']['dinner'] === '*C'
     && $meals()['2026-01-22']['lunch'] === '*-');
 check('move: marked as moved, the other slot names where to',
-    slot_html($entries(), $mon, 'dinner') === '<p class="meal-name">C <small class="swapped">verschoben</small></p>'
-    && slot_html($entries(), $thu, 'lunch') === '<em class="moved">Verschoben auf Montag Abend</em>'
+    slot_html($entries(), $mon, 'dinner', 'week') === '<p class="meal-name">C <small class="swapped">verschoben</small></p>'
+    && slot_html($entries(), $thu, 'lunch', 'week') === '<em class="moved">Verschoben auf Montag Abend</em>'
     && reset_warning(reset_slots($swapDb, true, $thu, 'lunch'), $thu, 'lunch') === 'Setzt auch Montag Abend zurück.');
 save_date_slot($swapDb, true, $thu, 'lunch', $b, null);
 check('a new meal in the emptied slot keeps the moved meal marked',
-    str_contains(slot_html($entries(), $mon, 'dinner'), 'verschoben')
-    && str_contains(slot_html($entries(), $thu, 'lunch'), 'getauscht')
+    str_contains(slot_html($entries(), $mon, 'dinner', 'week'), 'verschoben')
+    && str_contains(slot_html($entries(), $thu, 'lunch', 'week'), 'getauscht')
     && reset_warning(reset_slots($swapDb, true, $mon, 'dinner'), $mon, 'dinner') === 'Setzt auch Donnerstag Mittag zurück.');
 reset_date_slot($swapDb, true, $mon, 'dinner');
 check('reset of a moved meal also restores the emptied slot, even after a new meal there',
@@ -382,7 +407,7 @@ check('reset of a moved meal also restores the emptied slot, even after a new me
 move_meal($swapDb, true, [$mon, 'dinner'], [$thu, 'lunch', $c]);
 save_date_slot($swapDb, true, $mon, 'dinner', $a, null);
 check('emptied slot without a destination once the moved meal is replaced',
-    slot_html($entries(), $thu, 'lunch') === '<em class="moved">Verschoben</em>');
+    slot_html($entries(), $thu, 'lunch', 'week') === '<em class="moved">Verschoben</em>');
 reset_date_slot($swapDb, true, $thu, 'lunch');
 check('reset of the emptied slot restores both', $meals()['2026-01-19']['dinner'] === 'Eltern kochen'
     && $meals()['2026-01-22']['lunch'] === 'C');
@@ -406,11 +431,11 @@ $swapEntries = $entries();
 check('skip with a note, meal from the list, hints follow the swapped meals',
     slot_hints($swapEntries, $mon, 'lunch') === ['cook_double' => 'Doppelte Menge für den Abend']
     && slot_hints($swapEntries, $mon, 'dinner') === ['leftovers' => 'Reste vom Mittagessen']
-    && slot_html($swapEntries, $mon, 'dinner') === '<p class="meal-name">A <small class="swapped">getauscht</small></p>'
+    && slot_html($swapEntries, $mon, 'dinner', 'week') === '<p class="meal-name">A <small class="swapped">getauscht</small></p>'
         . '<ul class="hints" aria-label="Hinweise"><li class="hint-leftovers">Reste vom Mittagessen</li></ul>');
 save_date_slot($swapDb, true, $mon, 'dinner', null, 'Grosseltern');
 check('skipped slot with a note shows the note', $meals()['2026-01-19']['dinner'] === '*Grosseltern'
-    && slot_html($entries(), $mon, 'dinner') === '<em class="note">Grosseltern</em>');
+    && slot_html($entries(), $mon, 'dinner', 'week') === '<em class="note">Grosseltern</em>');
 check('swap to an unknown meal is rejected', throws(fn() => save_date_slot($swapDb, true, $mon, 'dinner', 999, null), UserError::class));
 check('database rejects a note with a partner, and moved without a meal or partner', throws(fn() => $swapDb->exec(
     "INSERT INTO date_slot VALUES ('2026-01-20', 'lunch', 1, NULL, 'Notiz', '2026-01-21', 'lunch', 0)"), PDOException::class)
@@ -456,8 +481,8 @@ exchange_meals($planDb, false, [$sat, 'lunch', $p], [$mon2, 'lunch', $r]);
 save_date_slot($planDb, false, $sat, 'dinner', null, null);
 check('planning changes are marked until the week is planned',
     $planMeals('2026-01-24') === ['lunch' => '*R', 'dinner' => '*-'] && $planMeals('2026-01-26')['lunch'] === '*P'
-    && slot_html($planEntries(), $sat, 'dinner') === '<em class="skipped">Ausgelassen</em>'
-    && str_contains(slot_html($planEntries(), $sat, 'lunch'), 'getauscht'));
+    && slot_html($planEntries(), $sat, 'dinner', 'week') === '<em class="skipped">Ausgelassen</em>'
+    && str_contains(slot_html($planEntries(), $sat, 'lunch', 'week'), 'getauscht'));
 check('reset of a swap ignores planning changes', reset_slots($planDb, true, $sat, 'lunch') === []);
 reset_date_slot($planDb, false, $mon2, 'lunch');
 check('reset while planning restores the week blueprint, also of the linked slot',
@@ -465,14 +490,14 @@ check('reset while planning restores the week blueprint, also of the linked slot
 move_meal($planDb, false, [$sat, 'dinner'], [$mon2, 'lunch', $r]);
 save_blueprint_slot($planDb, 2, 2, 'lunch', $q, null);    // Sun 2026-01-25
 check('unchanged slots follow the week blueprint while planning', $planMeals('2026-01-25')['lunch'] === 'Q'
-    && str_contains(slot_html($planEntries(), $mon2, 'lunch'), 'Verschoben auf Samstag Abend'));
+    && str_contains(slot_html($planEntries(), $mon2, 'lunch', 'week'), 'Verschoben auf Samstag Abend'));
 check('the other week blueprint cannot be chosen for a planned week', !choose_blueprint($planDb, $cur, 2));
 check('complete planning, only once', complete_week($planDb, $sat)
     && load_week($planDb, $sat) === ['blueprint' => 2, 'planned' => true] && !complete_week($planDb, $sat));
 check('planned week: changes no longer marked, an emptied slot is not planned',
     $planMeals('2026-01-24') === ['lunch' => 'P', 'dinner' => 'R'] && $planMeals('2026-01-26')['lunch'] === '-'
-    && slot_html($planEntries(), $mon2, 'lunch') === '<span class="unplanned">Nicht geplant</span>'
-    && slot_html($planEntries(), $sat, 'dinner') === '<p class="meal-name">R</p>');
+    && slot_html($planEntries(), $mon2, 'lunch', 'week') === '<span class="unplanned">Nicht geplant</span>'
+    && slot_html($planEntries(), $sat, 'dinner', 'week') === '<p class="meal-name">R</p>');
 save_blueprint_slot($planDb, 2, 2, 'lunch', null, null);
 save_blueprint_slot($planDb, 2, 4, 'lunch', $q, null);    // Tue 2026-01-27, empty when completed
 check('changes to the week blueprints do not affect a planned week',
@@ -968,6 +993,29 @@ check('planning swap page: forms send planning, no warning about unused ingredie
     && str_contains($swapPage, 'name="partner_date" value="' . $monKey . '"')
     && str_contains($swapPage, 'href="' . e(swap_url('/meals/new', $nextSat, 'lunch', false)) . '"')
     && str_contains($swapPage, 'href="/planning" role="button"'));
+// Next Tuesday lunch: a meal whose ingredients keep until Monday and that needs advance preparation.
+$nextTue = add_days($nextSat, 3);
+request('POST', '/meals/new', ['csrf' => $token] + meal_input('Fisch', ['protein_source' => 'fish', 'shelf_life' => 'short',
+    'leftovers' => 'eat_fresh']) + ['advance_prep' => '1']);
+request('POST', '/week-blueprints/slot', $blueprintInput(4, 'Fisch'));
+$freshWarning = 'Die Zutaten für Fisch halten evtl. nicht bis Dienstag.';
+check('planning: freshness hint and protein source on Planen and in the week blueprint editor, not in the day and week view',
+    str_contains($planning = request('GET', '/planning')['body'], '<li class="hint-not_fresh_short">Zutaten evtl. verdorben</li>')
+    && str_contains($planning, '<span role="listitem" class="tag-protein_source-fish"><span class="visually-hidden">Proteinquelle: </span>Fisch</span>')
+    && (bool)preg_match('~id="slot-2-4-lunch"(?:(?!</form>).)*tag-protein_source-fish(?:(?!</form>).)*'
+        . '<li class="hint-not_fresh_short">Zutaten evtl. verdorben</li>~s', request('GET', '/week-blueprints')['body'])
+    && !str_contains(request('GET', "/week?date=$satKey")['body'], 'not_fresh')
+    && !str_contains(request('GET', '/?date=' . $nextTue->format('Y-m-d'))['body'], 'not_fresh'));
+$listSection = fn(string $url): string => strstr(request('GET', $url)['body'], '<section id="liste">');
+check('planning: freshness warning at the meals of the list, not on the day of delivery and not when swapping',
+    str_contains($listSection(swap_url('/swap', $nextTue, 'lunch', false)), '<span class="warning">' . $freshWarning . '</span>')
+    && !str_contains($listSection(swap_url('/swap', $nextSat, 'lunch', false)), 'class="warning"')
+    && !str_contains($listSection($swapUrl('/swap', 'lunch')), 'halten evtl. nicht'));
+check('advance preparation: reminder below the day before',
+    (bool)preg_match('~<ul class="hints advance-prep" aria-label="Für morgen">\s*'
+        . '<li class="hint-advance_prep">Vorarbeit für morgen Mittag: Fisch</li>\s*</ul>\s*<nav class="pager">~', request('GET', "/?date=$monKey")['body'])
+    && !str_contains(request('GET', "/?date=$satKey")['body'], 'advance-prep'));
+request('POST', '/week-blueprints/slot', $blueprintInput(4, ''));
 check('the next week cannot be swapped while it is not planned',
     redirects_to(request('GET', swap_url('/swap', $nextSat, 'lunch')), "/?date=$satKey")
     && str_contains(request('GET', "/?date=$satKey")['body'], 'Diese Mahlzeit kannst du hier nicht ändern.'));
@@ -1038,6 +1086,9 @@ check('advance preparation: hint in the day view, after the prep time in the mea
     str_contains($satView(), '<li class="hint-advance_prep">Vorarbeit nötig</li>') && substr_count($satView(), 'Vorarbeit nötig') === 1
     && str_contains(request('GET', '/meals')['body'], $advancePrepTag)
     && str_contains(request('GET', $swapUrl('/swap', 'lunch', $satKey))['body'], $advancePrepTag));
+check('advance preparation: no reminder on past days',
+    str_contains(request('GET', '/')['body'], '<p class="meal-name">Rösti</p>')
+    && !str_contains(request('GET', '/?date=' . add_days(today(), -1)->format('Y-m-d'))['body'], 'advance-prep'));
 check('advance preparation: switched off unless the value is 1', redirects_to(request('POST', '/meals/edit',
     $roestiInput + ['advance_prep' => 'x']), "/meals#meal-$roestiId")
     && str_contains(request('GET', "/meals/edit?id=$roestiId")['body'], 'name="advance_prep" value="1" >'));

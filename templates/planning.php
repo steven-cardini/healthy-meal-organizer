@@ -24,7 +24,7 @@
             <?php foreach (MEAL_TIMES as $mealTime => $label): ?>
                 <div class="week-slot <?= e($mealTime) ?>">
                     <h3><span class="visually-hidden"><?= e($label) ?></span></h3>
-                    <div><?= slot_html($entries, $date, $mealTime) ?></div>
+                    <div><?= slot_html($entries, $date, $mealTime, 'planning') ?></div>
                     <?php
                     $entry = $entries[$date->format('Y-m-d')][$mealTime];
                     $swap = false;

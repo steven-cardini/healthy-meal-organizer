@@ -12,7 +12,7 @@
     <?php $past = is_past($date, $mealTime) ?>
     <article class="meal-time <?= e($mealTime) ?><?= $past ? ' past' : '' ?>">
         <h2><?= e($label) ?><?php if ($past): ?><span class="visually-hidden"> (vorbei)</span><?php endif ?></h2>
-        <?= slot_html($entries, $date, $mealTime, true) ?>
+        <?= slot_html($entries, $date, $mealTime, 'day') ?>
         <?php
         $actions = $swappable[$mealTime];
         $recipeUrl = $entry['recipe_url'] ?? null;
@@ -28,6 +28,13 @@
         <?php endif ?>
     </article>
 <?php endforeach ?>
+<?php if ($advancePrep !== []): ?>
+    <ul class="hints advance-prep" aria-label="Für morgen">
+        <?php foreach ($advancePrep as $reminder): ?>
+            <li class="hint-advance_prep"><?= e($reminder) ?></li>
+        <?php endforeach ?>
+    </ul>
+<?php endif ?>
 <nav class="pager">
     <a href="/?date=<?= e($previous->format('Y-m-d')) ?>" rel="prev">← Vortag</a>
     <?php if (!$isToday): ?>

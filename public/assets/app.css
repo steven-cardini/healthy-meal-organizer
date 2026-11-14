@@ -257,6 +257,10 @@ article.meal-time h2 {
     grid-column: 1 / -1;
 }
 
+.hints.advance-prep {
+    margin: 0 0 var(--pico-spacing);
+}
+
 .avatar {
     display: grid;
     flex: none;
@@ -477,6 +481,11 @@ article.week-day[aria-current] {
 .week-slot .meal-name {
     font-size: 1rem;
     font-weight: 600;
+}
+
+:is(.week-slot, .plan-day) .tags {
+    margin-top: 0.125rem;
+    font-size: 0.8125rem;
 }
 
 .week-slot .hints {
@@ -918,6 +927,7 @@ button.choice .warning {
 
 .meal-list button.choice {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.875rem;
     padding: 0.625rem 0;
@@ -926,9 +936,14 @@ button.choice .warning {
     background-color: transparent;
 }
 
-.meal-list button.choice > span:not(.avatar) {
+.meal-list button.choice > span:not(.avatar, .warning) {
     flex: 1;
     min-width: 0;
+}
+
+.meal-list button.choice .warning {
+    flex-basis: 100%;
+    margin-top: 0;
 }
 
 .meal-list button.choice:hover strong {

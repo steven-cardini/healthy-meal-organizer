@@ -71,7 +71,7 @@ Every route except `/login` requires a session. Every POST checks the CSRF token
 
 ## Week blueprint editor
 
-Each slot is a form with a choice *Gericht* / *Notiz* and one text field (suggestions from the meal list via `<datalist>`). An empty text field empties the slot. A meal name not yet in the meal list redirects to `/meals/new` with the name and the slot; saving that form creates the meal, fills the slot and returns to the week blueprint editor.
+Each slot is a form with a choice *Gericht* / *Notiz* and one text field (suggestions from the meal list via `<datalist>`). An empty text field empties the slot. A meal name not yet in the meal list redirects to `/meals/new` with the name and the slot; saving that form creates the meal, fills the slot and returns to the week blueprint editor. The hints of a slot (`blueprint_entries()`) are computed on the dates of the next week, as they only depend on the day within the week.
 
 ## Planning and swap
 
@@ -85,7 +85,7 @@ What is cooked on a date (`load_entries()`): the `date_slot` row with `swap` = 1
 - Choosing the other week blueprint while planning deletes the week's rows (`swap` = 0) and stores the week blueprint in `week` (D-40).
 - *Planung abschliessen* (`complete_week()`) copies every week blueprint slot without a row into `date_slot` (`swap` = 0), empty slots too, and sets `week.planned` = 1. Every logged-in request first completes the current week if it is not planned (`plan_current_week()`, FR-25). Exception: while `week` is empty, it only stores the current week as a planned *Woche 1* without rows, so the first week of use keeps following the week blueprints.
 - Writes that read first (e.g. *Zurücksetzen*, *Planung abschliessen*) run in `BEGIN IMMEDIATE` transactions (`in_transaction()`).
-- Freshness: `fresh_until()` (`src/calendar.php`), warnings in `move_warning()` and `unused_warning()` (`src/app.php`), hint in `slot_hints()`.
+- Freshness: `fresh_until()` (`src/calendar.php`), warnings in `move_warning()` (also for *Aus der Liste* when planning, counted from the start of the week) and `unused_warning()` (`src/app.php`), hint in `slot_hints()`.
 
 ## Meal form
 

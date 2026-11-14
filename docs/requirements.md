@@ -40,7 +40,7 @@ Phase 6 is only drafted, "Later" is not specified yet. Earlier phases must not b
 
 ### Editing
 
-- **FR-7** Week blueprint editor (*Wochenvorlagen bearbeiten*, linked from the *Planen* page, FR-22): shows all 28 slots of both week blueprints. Each slot can be set to a meal, a note, or empty (empty text field).
+- **FR-7** Week blueprint editor (*Wochenvorlagen bearbeiten*, linked from the *Planen* page, FR-22): shows all 28 slots of both week blueprints. Each slot can be set to a meal, a note, or empty (empty text field). Below a meal: its protein source (icon and text) and the planning hints (FR-14), with the other week blueprint as the day before and after (weeks alternate, FR-3).
 - **FR-8** When entering a meal, existing meals are suggested. A name not in the meal list opens the new meal form (FR-9) with the name filled in; after saving, the meal is entered in the slot.
 - **FR-9** Meal list: shows all meals with their number of uses in the week blueprints, and a button for a new meal. A meal opens a form to change its name, tags (FR-13), *Vorarbeit nötig* (FR-34), ingredients (FR-27) and recipe link (FR-29), or to delete it. A meal in use cannot be deleted (FR-21). Renaming a meal to the name of another meal shows an error.
 - **FR-10** Meal names are unique (case-insensitive).
@@ -66,16 +66,21 @@ Phase 6 is only drafted, "Later" is not specified yet. Earlier phases must not b
 | `leftovers` | Reste | `reheats_well`: Gut aufwärmbar, `eat_fresh`: Frisch essen | Whether the **cooked** meal still tastes good when reheated the next day |
 | `vegetable_level` | Gemüse | `main_component`: Genug enthalten, `side_dish`: Gemüsebeilage kochen, `raw_veggies_needed`: Rohkost dazu | Whether the meal contains enough vegetables, and if not, what to add |
 
-- **FR-14** The day and week view show hints below a meal, each with an icon and text:
+- **FR-14** Hints below a meal, each with an icon and text. Each view shows only those that help there (D-25):
+  - Day view (cooking): all except *Zutaten evtl. verdorben*.
+  - Week view (looking ahead): *Doppelte Menge*, *Reste*, *Vorarbeit nötig*, *Lange Zubereitung*.
+  - *Planen* (FR-22) and week blueprint editor (FR-7), deciding: those of the week view and *Zutaten evtl. verdorben*.
+
+  The hints:
   - *Doppelte Menge für den Abend* / *für morgen Mittag*: the meal is `reheats_well` and the same meal is planned in the next slot (lunch → dinner, dinner → next day's lunch). Slots are compared by date, including swaps (FR-16).
   - *Reste vom Mittagessen* / *vom Vorabend*: the same `reheats_well` meal is planned in the slot before. As the meal is already cooked, only *Rohkost dazu* and *Alternative für Kinder* are also shown.
   - *Vorarbeit nötig*: the meal needs advance preparation (FR-34).
   - *Lange Zubereitung*: `prep_time` is `slow`.
   - *Gemüsebeilage kochen* / *Rohkost dazu*: `vegetable_level` is `side_dish` / `raw_veggies_needed`.
   - *Alternative für Kinder*: `child_factor` is `acquired_taste`.
-  - *Zutaten evtl. nicht mehr frisch*: the meal is planned after its ingredients keep (FR-20), wherever it comes from (week blueprint, planning, swap).
+  - *Zutaten evtl. verdorben*: the meal is planned after its ingredients keep (FR-20), wherever it comes from (week blueprint, planning).
 - **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list and the choices of *Anderes Gericht* (FR-17) show the same three tags, and after the prep time *Vorarbeit nötig* if set (FR-34).
-- **FR-34** *Vorarbeit nötig*: a meal can be marked as needing work hours or a day before cooking it (e.g. a dough). In the meal form a switch in the *Zubereitungszeit* group, off by default (also for meals created before it existed).
+- **FR-34** *Vorarbeit nötig*: a meal can be marked as needing work hours or a day before cooking it (e.g. a dough). In the meal form a switch in the *Zubereitungszeit* group, off by default (also for meals created before it existed). Below the day view of the day before: *Vorarbeit für morgen Mittag: …* (or *Abend*), unless that meal is leftovers (FR-14); not on past days.
 
 ## Functional requirements (phase 3)
 
@@ -96,7 +101,8 @@ Use cases: "I would rather eat X today", "ingredient Y was discounted", "ingredi
 - **FR-20** Freshness warnings, never blocking. The uncooked ingredients keep from the Saturday of the week until Monday (`short`), Thursday (`medium`) or all week (`long`), i.e. the upper end of the `shelf_life` range.
   - At each exchange and move option (also when planning, FR-23): a meal would move to a later date after its ingredients keep.
   - At *Aus der Liste* and *Auslassen* (not when planning, nothing is bought yet): the current meal is `short` or `medium`, so its ingredients would be left over.
-  - The hint *Zutaten evtl. nicht mehr frisch* (FR-14).
+  - At each meal of *Aus der Liste* when planning: the meal would be planned after its ingredients keep.
+  - The hint *Zutaten evtl. verdorben* (FR-14), when planning only: once the week is planned, the groceries are ordered.
 - **FR-21** A meal cannot be deleted while it is in a week blueprint, or from today on in a planned week, the planning of the next week or a swap. Deleting a meal empties it on past dates of planned weeks and removes past swaps to it, so the planned meal shows there again (D-51). The meal list counts uses in the week blueprints only.
 
 ## Functional requirements (phase 4)
@@ -105,7 +111,7 @@ Use cases: "I would rather eat X today", "ingredient Y was discounted", "ingredi
 
 The groceries for a week are ordered on Wednesday or Thursday before it. Before that, the week must be planned.
 
-- **FR-22** *Planen* (page title *Nächste Woche planen*): shows the next week, Saturday to Friday, starting from the week blueprint in turn (FR-3). The other week blueprint can be chosen instead; this discards the changes made to the week so far, and a warning says so if there are any. The page links to *Wochenvorlagen bearbeiten* (FR-7). Planning is possible at any time, for the next week only.
+- **FR-22** *Planen* (page title *Nächste Woche planen*): shows the next week, Saturday to Friday, starting from the week blueprint in turn (FR-3). The other week blueprint can be chosen instead; this discards the changes made to the week so far, and a warning says so if there are any. The page links to *Wochenvorlagen bearbeiten* (FR-7). Planning is possible at any time, for the next week only. Below a meal: its protein source (icon and text) and the planning hints (FR-14).
 - **FR-23** Each slot offers in a *⋯* menu the actions of FR-17 to FR-19, for the slots of the next week: *Gericht tauschen*, *Gericht verschieben*, *Aus der Liste* or a new meal, *Auslassen*, and *Zurücksetzen*, which restores the week blueprint. Until the week is planned, changes are marked as in FR-16 (e.g. *getauscht*, *Ausgelassen*), also in the day and week view. Once it is planned, they are no longer marked (a slot emptied by a move, or skipped without a note, then shows *Nicht geplant*); only swaps are.
 - **FR-24** *Planung abschliessen* makes the next week a planned week, after a confirmation that says it cannot be reopened. Afterwards, changes are only possible as swaps in the day view (FR-16 to FR-19), and the *Planen* page says that the next week is planned and the week after can be planned from Saturday on.
 - **FR-25** A planned week keeps what was planned: later changes to the week blueprints do not affect it. A week not planned by its Saturday becomes a planned week with its planning so far. Only the first week the app is used keeps following the week blueprints, as they are usually entered during that week.

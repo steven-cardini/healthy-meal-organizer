@@ -16,7 +16,10 @@
     <section id="woche-<?= e($blueprint) ?>">
         <h2>Woche <?= e($blueprint) ?></h2>
         <?php for ($day = 1; $day <= 7; $day++): ?>
-            <?php $weekdayName = week_day_name($day) ?>
+            <?php
+            $weekdayName = week_day_name($day);
+            $date = add_days($weekStart, $day - 1);
+            ?>
             <article class="plan-day">
                 <h3><?= e($weekdayName) ?></h3>
                 <div class="grid">
@@ -42,6 +45,9 @@
                                        aria-label="<?= e("$weekdayName, $label") ?>">
                                 <button type="submit" class="outline" aria-label="Speichern" title="Speichern"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
                             </fieldset>
+                            <?php if (($slot['meal'] ?? null) !== null): ?>
+                                <?= tags_html($slot, ['protein_source']) . hints_html($entries[$blueprint], $date, $mealTime, 'planning') ?>
+                            <?php endif ?>
                             <?= flash_html(($flash['target'] ?? null) === $target ? $flash : null) ?>
                         </form>
                     <?php endforeach ?>

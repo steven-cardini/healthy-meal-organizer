@@ -16,7 +16,7 @@
             <?php $past = is_past($day, $mealTime) ?>
             <div class="week-slot <?= e($mealTime) ?><?= $past ? ' past' : '' ?>">
                 <h3><span class="visually-hidden"><?= e($label) ?><?= $past ? ' (vorbei)' : '' ?></span></h3>
-                <div><?= slot_html($entries, $day, $mealTime) ?></div>
+                <div><?= slot_html($entries, $day, $mealTime, 'week') ?></div>
             </div>
         <?php endforeach ?>
     </article>

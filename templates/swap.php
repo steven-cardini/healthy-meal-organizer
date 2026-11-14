@@ -81,6 +81,9 @@ $slotFields = '<input type="hidden" name="date" value="' . e($date->format('Y-m-
                             <strong><?= e($meal['name']) ?></strong>
                             <?= tags_html($meal) ?>
                         </span>
+                        <?php if ($meal['warning'] !== null): ?>
+                            <span class="warning"><?= e($meal['warning']) ?></span>
+                        <?php endif ?>
                     </button>
                 </li>
             <?php endforeach ?>
