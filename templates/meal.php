@@ -48,12 +48,14 @@ $ingredientRows[] = ['name' => '', 'category' => ''];
                     <?= e($label) ?>
                 </label>
             <?php endforeach ?>
+            <?php if ($tag === 'prep_time'): ?>
+                <label>
+                    <input type="checkbox" role="switch" name="advance_prep" value="1" <?= !empty($meal['advance_prep']) ? 'checked' : '' ?>>
+                    <span><?= e(ADVANCE_PREP_LABEL) ?> <small class="muted">z. B. Teig, Marinade</small></span>
+                </label>
+            <?php endif ?>
         </fieldset>
     <?php endforeach ?>
-    <label class="advance-prep">
-        <input type="checkbox" role="switch" name="advance_prep" value="1" <?= !empty($meal['advance_prep']) ? 'checked' : '' ?>>
-        <span>Vorarbeit nötig <small class="muted">z. B. Teig, Marinade</small></span>
-    </label>
     <fieldset class="ingredients">
         <legend>Zutaten <small class="muted">ohne Menge; Kategorie nur bei neuen Zutaten nötig</small></legend>
         <div class="ingredient-rows">

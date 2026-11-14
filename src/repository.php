@@ -464,10 +464,10 @@ function delete_unused_ingredients(PDO $db): void
     $db->exec('DELETE FROM ingredient WHERE id NOT IN (SELECT ingredient_id FROM meal_ingredient)');
 }
 
-/** @return list<array{id: int, name: string, protein_source: string, prep_time: string, child_factor: string, uses: int, ingredients: int}> sorted by name */
+/** @return list<array{id: int, name: string, protein_source: string, prep_time: string, child_factor: string, advance_prep: int, uses: int, ingredients: int}> sorted by name */
 function list_meals(PDO $db): array
 {
-    $meals = $db->query('SELECT m.id, m.name, m.protein_source, m.prep_time, m.child_factor, COUNT(s.blueprint) AS uses,
+    $meals = $db->query('SELECT m.id, m.name, m.protein_source, m.prep_time, m.child_factor, m.advance_prep, COUNT(s.blueprint) AS uses,
             (SELECT COUNT(*) FROM meal_ingredient mi WHERE mi.meal_id = m.id) AS ingredients
         FROM meal m LEFT JOIN blueprint_slot s ON s.meal_id = m.id GROUP BY m.id')->fetchAll();
     usort($meals, fn(array $a, array $b): int => strcmp(sort_key($a['name']), sort_key($b['name'])));

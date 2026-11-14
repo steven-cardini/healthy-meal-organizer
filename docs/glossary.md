@@ -36,7 +36,7 @@ Code and docs use the English term, the UI uses the German term. Phase: when the
 | Vegetable level     | Gemüse             | `vegetable_level`    | Whether a meal contains enough vegetables. | 2 |
 | Advance preparation | Vorarbeit nötig    | `advance_prep`       | A meal needs work hours or a day before cooking it, e.g. a dough. Yes/no, default no. | 2 |
 | Hint                | –                  | `slot_hints`         | Short note below a meal in the day and week view, e.g. "Rohkost dazu". | 2 |
-| Summary tags        | –                  | `SUMMARY_TAGS`       | Tags shown in the day view and the meal list: protein source, prep time, kid suitability. | 2 |
+| Summary tags        | –                  | `SUMMARY_TAGS`       | Tags shown in the day view and the meal list: protein source, prep time, kid suitability. The meal list and the swap choices also show *Vorarbeit nötig* if set (FR-15). | 2 |
 | Past                | vorbei             | `past`               | Meal time that is over: lunch from 14:00, dinner from the next day. | 3 |
 | Swap                | Anderes Gericht / Gericht planen / getauscht | `swap` | One-time change of a slot on a date of a planned week: another meal, or skipped. A swapped meal is marked *getauscht*. *Gericht planen*: for a slot without a meal. | 3 |
 | Exchange            | Gericht tauschen   | `exchange`           | Swap or planning change in which two slots of the week exchange their meals. | 3 |

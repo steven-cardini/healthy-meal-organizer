@@ -74,8 +74,8 @@ Phase 6 is only drafted, "Later" is not specified yet. Earlier phases must not b
   - *Gemüsebeilage kochen* / *Rohkost dazu*: `vegetable_level` is `side_dish` / `raw_veggies_needed`.
   - *Alternative für Kinder*: `child_factor` is `acquired_taste`.
   - *Zutaten evtl. nicht mehr frisch*: the meal is planned after its ingredients keep (FR-20), wherever it comes from (week blueprint, planning, swap).
-- **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list and the exchange options (FR-17) show the same three tags.
-- **FR-34** *Vorarbeit nötig*: a meal can be marked as needing work hours or a day before cooking it (e.g. a dough). In the meal form a switch, off by default (also for meals created before it existed).
+- **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list and the choices of *Anderes Gericht* (FR-17) show the same three tags, and after the prep time *Vorarbeit nötig* if set (FR-34).
+- **FR-34** *Vorarbeit nötig*: a meal can be marked as needing work hours or a day before cooking it (e.g. a dough). In the meal form a switch in the *Zubereitungszeit* group, off by default (also for meals created before it existed).
 
 ## Functional requirements (phase 3)
 

@@ -686,8 +686,9 @@ check('new meal form has the name (HTML-escaped), the slot and all tag values', 
     && str_contains($form['body'], 'name="day" value="' . $blueprintDay . '"')
     && str_contains($form['body'], weekday(today()) . ' (Woche 1), Mittagessen')
     && substr_count($form['body'], 'type="radio"') === array_sum(array_map(fn(array $d): int => count($d['values']), MEAL_TAGS)));
-check('new meal form: no value preselected, advance preparation off', !str_contains($form['body'], 'checked')
-    && str_contains($form['body'], '<input type="checkbox" role="switch" name="advance_prep" value="1" >'));
+check('new meal form: no value preselected, advance preparation off and in the prep time group', !str_contains($form['body'], 'checked')
+    && (bool)preg_match('~<legend>\s*Zubereitungszeit\s*</legend>(?:(?!</fieldset>).)*'
+        . '<input type="checkbox" role="switch" name="advance_prep" value="1" >~s', $form['body']));
 check('new meal form with an invalid slot is rejected',
     request('GET', '/meals/new?blueprint=3&day=1&meal_time=lunch')['status'] === 400
     && request('GET', '/meals/new?blueprint=1&day=8&meal_time=lunch')['status'] === 400);
@@ -1027,10 +1028,16 @@ check('grocery list includes swaps, excludes skipped slots, names meals without 
 check('reset of the swap restores the planned week',
     redirects_to(request('POST', '/swap/reset', $slotInput('lunch', $satKey)), "/?date=$satKey")
     && str_contains(request('GET', "/?date=$satKey")['body'], '<p class="meal-name">Rösti</p>'));
-check('advance preparation: saved from the meal form, hint in the day view', redirects_to(request('POST', '/meals/edit',
-    $roestiInput + ['advance_prep' => '1']), "/meals#meal-$roestiId")
-    && str_contains(request('GET', "/meals/edit?id=$roestiId")['body'], 'name="advance_prep" value="1" checked>')
-    && str_contains(request('GET', "/?date=$satKey")['body'], '<li class="hint-advance_prep">Vorarbeit nötig</li>'));
+$advancePrepTag = '<span role="listitem" class="tag-prep_time-quick"><span class="visually-hidden">Zubereitungszeit: </span>'
+    . 'Schnell (≤ 20 Min.)</span><span role="listitem" class="tag-advance_prep">Vorarbeit nötig</span>';
+$satView = fn(): string => request('GET', "/?date=$satKey")['body'];
+check('advance preparation: saved from the meal form', !str_contains($satView(), 'Vorarbeit nötig')
+    && redirects_to(request('POST', '/meals/edit', $roestiInput + ['advance_prep' => '1']), "/meals#meal-$roestiId")
+    && str_contains(request('GET', "/meals/edit?id=$roestiId")['body'], 'name="advance_prep" value="1" checked>'));
+check('advance preparation: hint in the day view, after the prep time in the meal list and the swap choices',
+    str_contains($satView(), '<li class="hint-advance_prep">Vorarbeit nötig</li>') && substr_count($satView(), 'Vorarbeit nötig') === 1
+    && str_contains(request('GET', '/meals')['body'], $advancePrepTag)
+    && str_contains(request('GET', $swapUrl('/swap', 'lunch', $satKey))['body'], $advancePrepTag));
 check('advance preparation: switched off unless the value is 1', redirects_to(request('POST', '/meals/edit',
     $roestiInput + ['advance_prep' => 'x']), "/meals#meal-$roestiId")
     && str_contains(request('GET', "/meals/edit?id=$roestiId")['body'], 'name="advance_prep" value="1" >'));

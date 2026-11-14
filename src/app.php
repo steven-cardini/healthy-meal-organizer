@@ -59,6 +59,9 @@ const INGREDIENT_CATEGORIES = [
 
 const MAX_URL_LENGTH = 2000;
 
+/** UI label of advance_prep (FR-34). */
+const ADVANCE_PREP_LABEL = 'Vorarbeit nötig';
+
 /** Tags shown in the day view and the meal list (docs/decisions.md D-25). */
 const SUMMARY_TAGS = ['protein_source', 'prep_time', 'child_factor'];
 
@@ -268,17 +271,23 @@ function slot_html(array $entries, DateTimeImmutable $date, string $mealTime, bo
     if (!$withTags) {
         return $name . $hints;
     }
-    return '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name . tags_html($entry)
+    return '<div class="meal">' . avatar_html($entry['protein_source']) . '<div>' . $name . tags_html($entry, false)
         . '</div>' . $hints . '</div>';
 }
 
-/** Values of SUMMARY_TAGS with their icons. $meal: row with these tag columns. Spans, as buttons allow no lists. */
-function tags_html(array $meal): string
+/**
+ * Values of SUMMARY_TAGS with their icons, and after the prep time ADVANCE_PREP_LABEL if set and $withAdvancePrep (the day
+ * view shows it as a hint). $meal: row with these columns. Spans, as buttons allow no lists.
+ */
+function tags_html(array $meal, bool $withAdvancePrep = true): string
 {
     $items = '';
     foreach (SUMMARY_TAGS as $tag) {
         $items .= '<span role="listitem" class="' . e(tag_class($tag, $meal[$tag])) . '"><span class="visually-hidden">'
             . e(MEAL_TAGS[$tag]['label']) . ': </span>' . e(MEAL_TAGS[$tag]['values'][$meal[$tag]]) . '</span>';
+        if ($tag === 'prep_time' && $withAdvancePrep && $meal['advance_prep'] === 1) {
+            $items .= '<span role="listitem" class="tag-advance_prep">' . e(ADVANCE_PREP_LABEL) . '</span>';
+        }
     }
     return '<span class="tags" role="list" aria-label="Eigenschaften">' . $items . '</span>';
 }
@@ -310,7 +319,7 @@ function slot_hints(array $entries, DateTimeImmutable $date, string $mealTime): 
         default => [],
     };
     if (!$leftovers && $entry['advance_prep'] === 1) {
-        $hints['advance_prep'] = 'Vorarbeit nötig';
+        $hints['advance_prep'] = ADVANCE_PREP_LABEL;
     }
     if (!$leftovers && $entry['prep_time'] === 'slow') {
         $hints['slow'] = 'Lange Zubereitung';

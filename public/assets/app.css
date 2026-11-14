@@ -285,7 +285,7 @@ article.meal-time h2 {
     font-size: 0.875rem;
 }
 
-:is(.tags > span, .hints li, fieldset.tag label)::before {
+:is(.tags > span, .hints li, fieldset.tag label:has([type="radio"]))::before {
     content: var(--icon) / "";
     margin-right: 0.375em;
 }
@@ -337,7 +337,7 @@ article.meal-time h2 {
     color: var(--pico-primary);
 }
 
-/* Hints (FR-14): the same icons as the tag values they come from (advance_prep: its own) */
+/* Hints (FR-14): the same icons as the tag values they come from */
 
 .hints {
     display: flex;
@@ -369,7 +369,7 @@ article.meal-time h2 {
 }
 
 .hint-advance_prep {
-    --hint-color: #0d9488;
+    --hint-color: #e8a317;
     --icon: "\1F963";
 }
 
@@ -417,6 +417,7 @@ article.meal-time h2 {
 .tag-prep_time-quick { --icon: "\26A1"; }
 .tag-prep_time-medium { --icon: "\1F552"; }
 .tag-prep_time-slow { --icon: "\23F3"; }
+.tag-advance_prep { --icon: "\1F963"; }
 .tag-child_factor-high_flyer { --icon: "\1F60B"; }
 .tag-child_factor-deconstructed { --icon: "\1F9E9"; }
 .tag-child_factor-acquired_taste { --icon: "\1F928"; }
@@ -568,13 +569,13 @@ fieldset.choice label:last-of-type {
     border-radius: 0 2rem 2rem 0;
 }
 
-:is(fieldset.choice, fieldset.tag) label:has(:checked) {
+:is(fieldset.choice, fieldset.tag) label:has([type="radio"]:checked) {
     border-color: transparent;
     background-color: var(--pico-primary-background);
     color: var(--pico-primary-inverse);
 }
 
-:is(fieldset.choice, fieldset.tag) input {
+:is(fieldset.choice, fieldset.tag) input[type="radio"] {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -582,7 +583,7 @@ fieldset.choice label:last-of-type {
     opacity: 0;
 }
 
-:is(fieldset.choice, fieldset.tag) label:has(:focus-visible) {
+:is(fieldset.choice, fieldset.tag) label:has([type="radio"]:focus-visible) {
     outline: 2px solid var(--pico-primary);
     outline-offset: 2px;
 }
@@ -683,7 +684,7 @@ fieldset.tag legend small {
     margin-left: 0.25rem;
 }
 
-fieldset.tag label {
+fieldset.tag label:has([type="radio"]) {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -1065,11 +1066,6 @@ body.offline {
 
 fieldset.ingredients legend small {
     margin-left: 0.25rem;
-}
-
-/* Same gap as below a fieldset.tag */
-label.advance-prep {
-    margin-bottom: calc(var(--pico-spacing) + 0.5rem);
 }
 
 .ingredient {
