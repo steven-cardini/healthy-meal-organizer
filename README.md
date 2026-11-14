@@ -9,7 +9,7 @@ Requirements: PHP 8.5 with `pdo_sqlite`, `sqlite3` and `mbstring`; Apache with `
 1. Copy `config.example.php` to `config.php` and fill in:
    - `password_hash`: `php -r 'echo password_hash("YOUR-PASSWORD", PASSWORD_DEFAULT), PHP_EOL;'`
    - `data_dir`: keep the default unless the data should live elsewhere (never inside `public/`).
-2. The database `data/db.sqlite` is created from `db/schema.sql` on the first request.
+2. The database `data/db.sqlite` is created from `db/schema.sql` on the first request. After a deploy with a new schema version, the first request migrates it (see `docs/architecture.md#data-model`).
 
 ## Local development
 
@@ -42,6 +42,8 @@ php bin/backup.php
 ```
 
 It copies the database to `data/backups/db-YYYY-MM-DD.sqlite` (in the configured `data_dir`) and keeps the last 14 copies. It prints nothing on success; on failure it exits with an error.
+
+Before a migration, the app also copies the database to `data/backups/before-vN.sqlite` (N: the new schema version). These copies are kept; delete them once the new version works.
 
 To restore: while nobody uses the app, replace `db.sqlite` with a copy.
 

@@ -337,7 +337,7 @@ article.meal-time h2 {
     color: var(--pico-primary);
 }
 
-/* Hints (FR-14): the same icons as the tag values they come from */
+/* Hints (FR-14): the same icons as the tag values they come from (advance_prep: its own) */
 
 .hints {
     display: flex;
@@ -366,6 +366,11 @@ article.meal-time h2 {
 .hint-leftovers {
     --hint-color: #3b82f6;
     --icon: "\267B\FE0F";
+}
+
+.hint-advance_prep {
+    --hint-color: #0d9488;
+    --icon: "\1F963";
 }
 
 .hint-slow {
@@ -1060,6 +1065,11 @@ body.offline {
 
 fieldset.ingredients legend small {
     margin-left: 0.25rem;
+}
+
+/* Same gap as below a fieldset.tag */
+label.advance-prep {
+    margin-bottom: calc(var(--pico-spacing) + 0.5rem);
 }
 
 .ingredient {

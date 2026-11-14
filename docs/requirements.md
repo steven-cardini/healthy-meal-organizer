@@ -42,7 +42,7 @@ Phase 6 is only drafted, "Later" is not specified yet. Earlier phases must not b
 
 - **FR-7** Week blueprint editor (*Wochenvorlagen bearbeiten*, linked from the *Planen* page, FR-22): shows all 28 slots of both week blueprints. Each slot can be set to a meal, a note, or empty (empty text field).
 - **FR-8** When entering a meal, existing meals are suggested. A name not in the meal list opens the new meal form (FR-9) with the name filled in; after saving, the meal is entered in the slot.
-- **FR-9** Meal list: shows all meals with their number of uses in the week blueprints, and a button for a new meal. A meal opens a form to change its name, tags (FR-13), ingredients (FR-27) and recipe link (FR-29), or to delete it. A meal in use cannot be deleted (FR-21). Renaming a meal to the name of another meal shows an error.
+- **FR-9** Meal list: shows all meals with their number of uses in the week blueprints, and a button for a new meal. A meal opens a form to change its name, tags (FR-13), *Vorarbeit nötig* (FR-34), ingredients (FR-27) and recipe link (FR-29), or to delete it. A meal in use cannot be deleted (FR-21). Renaming a meal to the name of another meal shows an error.
 - **FR-10** Meal names are unique (case-insensitive).
 
 ### Access
@@ -69,11 +69,13 @@ Phase 6 is only drafted, "Later" is not specified yet. Earlier phases must not b
 - **FR-14** The day and week view show hints below a meal, each with an icon and text:
   - *Doppelte Menge für den Abend* / *für morgen Mittag*: the meal is `reheats_well` and the same meal is planned in the next slot (lunch → dinner, dinner → next day's lunch). Slots are compared by date, including swaps (FR-16).
   - *Reste vom Mittagessen* / *vom Vorabend*: the same `reheats_well` meal is planned in the slot before. As the meal is already cooked, only *Rohkost dazu* and *Alternative für Kinder* are also shown.
+  - *Vorarbeit nötig*: the meal needs advance preparation (FR-34).
   - *Lange Zubereitung*: `prep_time` is `slow`.
   - *Gemüsebeilage kochen* / *Rohkost dazu*: `vegetable_level` is `side_dish` / `raw_veggies_needed`.
   - *Alternative für Kinder*: `child_factor` is `acquired_taste`.
   - *Zutaten evtl. nicht mehr frisch*: the meal is planned after its ingredients keep (FR-20), wherever it comes from (week blueprint, planning, swap).
 - **FR-15** The day view also shows the protein source (as a large icon and as text), prep time and kid suitability of a meal. The meal list and the exchange options (FR-17) show the same three tags.
+- **FR-34** *Vorarbeit nötig*: a meal can be marked as needing work hours or a day before cooking it (e.g. a dough). In the meal form a switch, off by default (also for meals created before it existed).
 
 ## Functional requirements (phase 3)
 

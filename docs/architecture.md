@@ -34,9 +34,11 @@ public/               Document root (the only web-accessible folder)
 src/                  PHP code: app.php (helpers, config, DB, session), calendar.php, repository.php, pages.php
 templates/            HTML templates
 db/schema.sql         Database schema (SSOT)
+db/migrations/        One migration per schema version (N.sql: from N-1 to N)
 bin/backup.php        Daily database backup, run by a scheduled task (README.md#backups)
 data/                 db.sqlite, sessions/, backups/ (gitignored, created at runtime; location set by data_dir in config.php)
 tests/smoke.php       Smoke tests
+tests/fixtures/        schema-v1.sql: schema version 1 as deployed, to test the migrations
 router.php            Router for the PHP built-in dev server
 config.example.php    Config layout (SSOT); copy to config.php (gitignored)
 ```
@@ -91,6 +93,8 @@ Name and one radio group per tag (FR-13), without a preselected value; every gro
 
 Optional recipe link (`type="url"`, `http`/`https` only, D-50).
 
+*Vorarbeit nötig* (FR-34): a switch (`role="switch"`), not a tag of `MEAL_TAGS`, as it has a default (D-56).
+
 Ingredients: one row per ingredient with a name (suggestions from all ingredient names via `<datalist>`) and a category (`INGREDIENT_CATEGORIES` in `src/app.php`, must match the `CHECK` in `db/schema.sql`). Existing ingredients show their category; a new row's category is empty. On save: rows with an empty name are dropped, names entered twice count once; an empty category takes the category of the known name, and is an error (422, D-22) for a new name; a chosen category and the spelling of the name are stored for the name, i.e. for all meals. *+ Zutat* clones an empty row from a `<template>` (D-47). Entering a known name selects its category (the suggestions carry it in `data-category`). Focusing a name field removes the names of the other rows from the suggestions.
 
 ## Grocery list
@@ -103,7 +107,7 @@ Each ingredient has a checkbox; `app.js` stores the ticked `name_key`s in `sessi
 
 Conceptual only. The SSOT is `db/schema.sql`.
 
-- **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13), `recipe_url` (optional, `http(s)://`, max. 2000 characters)
+- **meal**: `id`, `name` (max. 100 characters), `name_key` (unique; lowercase of `name` via `mb_strtolower`, because SQLite `NOCASE` ignores umlauts), and one `NOT NULL` column per tag (`protein_source`, `heaviness`, `prep_time`, `child_factor`, `shelf_life`, `leftovers`, `vegetable_level`), each with a `CHECK` on its allowed values (FR-13), `recipe_url` (optional, `http(s)://`, max. 2000 characters), `advance_prep` (0/1, default 0)
 - **blueprint_slot**: `blueprint` (≥ 1, the code uses 1 and 2, D-53), `day` (1–7, 1 = Saturday), `meal_time` (`lunch` | `dinner`), `meal_id` (FK → meal, `ON DELETE RESTRICT`), `note` (max. 100 characters)
   - Primary key (`blueprint`, `day`, `meal_time`). Exactly one of `meal_id` / `note` is set. No row means the slot is empty.
 - **week**: `start_date` (a Saturday, primary key), `blueprint` (as in `blueprint_slot`), `planned` (0/1). A row exists once a week is planned, or once the other week blueprint was chosen while planning it.
@@ -115,7 +119,9 @@ Conceptual only. The SSOT is `db/schema.sql`.
 
 Meal names, ingredient names and notes are trimmed, and runs of whitespace are collapsed to one space. The meal list and the grocery list are sorted with accented letters treated like their base letter (`ä` like `a`).
 
-Schema version: `PRAGMA user_version`, expected to be `SCHEMA_VERSION` (`src/app.php`, currently 1). The schema is applied when the version is 0; any other version than `SCHEMA_VERSION` is refused (error 500, logged). Later phases add migrations from one version to the next, so the production database never has to be deleted.
+Schema version: `PRAGMA user_version`, expected to be `SCHEMA_VERSION` (`src/app.php`, currently 2). `open_db()` applies `db/schema.sql` when the version is 0, and migrates a lower version (D-55); a higher version is refused (error 500, logged).
+
+Migrations: in one `BEGIN IMMEDIATE` transaction, `open_db()` copies the database to `backups/before-vN.sqlite` (N = `SCHEMA_VERSION`, in `data_dir`, not rotated), then runs `db/migrations/<version>.sql` for each version up to `SCHEMA_VERSION`; each migration sets `user_version`. On an error, the database stays unchanged and the next request tries again. A schema change updates `db/schema.sql` and adds a migration that gives an existing database the same schema (checked by the smoke tests from `tests/fixtures/schema-v1.sql`). Migrations must work with the host's older SQLite (D-52), e.g. without `ALTER TABLE ... DROP COLUMN` (3.35).
 
 ## Weeks and week blueprints
 

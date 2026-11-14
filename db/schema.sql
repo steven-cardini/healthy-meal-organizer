@@ -1,6 +1,7 @@
 -- Database schema (SSOT). Applied once to an empty database, see docs/architecture.md#data-model.
+-- A change needs a migration in db/migrations/ that gives an existing database the same schema.
 
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;
 
 -- Tag values: see MEAL_TAGS in src/app.php and docs/requirements.md#meal-tags.
 CREATE TABLE meal (
@@ -15,7 +16,8 @@ CREATE TABLE meal (
     shelf_life      TEXT NOT NULL CHECK (shelf_life IN ('short', 'medium', 'long')),
     leftovers       TEXT NOT NULL CHECK (leftovers IN ('reheats_well', 'eat_fresh')),
     vegetable_level TEXT NOT NULL CHECK (vegetable_level IN ('main_component', 'side_dish', 'raw_veggies_needed')),
-    recipe_url      TEXT CHECK (length(recipe_url) <= 2000 AND (recipe_url LIKE 'http://%' OR recipe_url LIKE 'https://%'))
+    recipe_url      TEXT CHECK (length(recipe_url) <= 2000 AND (recipe_url LIKE 'http://%' OR recipe_url LIKE 'https://%')),
+    advance_prep    INTEGER NOT NULL DEFAULT 0 CHECK (advance_prep IN (0, 1))
 );
 
 -- One row per ingredient name; its category applies to all meals (docs/decisions.md D-45).

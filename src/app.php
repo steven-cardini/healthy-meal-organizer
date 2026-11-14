@@ -8,7 +8,7 @@ require __DIR__ . '/pages.php';
 
 const ROOT_DIR = __DIR__ . '/..';
 /** Same as PRAGMA user_version in db/schema.sql. */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const SESSION_LIFETIME = 180 * 86400;
 const MAX_TEXT_LENGTH = 100;
 const MEAL_TIMES = ['lunch' => 'Mittagessen', 'dinner' => 'Abendessen'];
@@ -90,17 +90,25 @@ function open_db(string $dataDir): PDO
     if (!is_dir($dataDir)) {
         mkdir($dataDir, 0700, true);
     }
-    $db = new PDO('sqlite:' . $dataDir . '/db.sqlite', null, null, [
+    $file = $dataDir . '/db.sqlite';
+    $db = new PDO('sqlite:' . $file, null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
     $db->exec('PRAGMA foreign_keys = ON');
-    if (schema_version($db) === 0) {
-        $db->exec('BEGIN IMMEDIATE');
-        if (schema_version($db) === 0) {
-            $db->exec(file_get_contents(ROOT_DIR . '/db/schema.sql'));
-        }
-        $db->exec('COMMIT');
+    if (schema_version($db) < SCHEMA_VERSION) {
+        in_transaction($db, function () use ($db, $file, $dataDir): void {
+            $version = schema_version($db);
+            if ($version === 0) {
+                $db->exec(file_get_contents(ROOT_DIR . '/db/schema.sql'));
+            } elseif ($version < SCHEMA_VERSION) {
+                // See docs/architecture.md#data-model (migrations).
+                backup_db($file, $dataDir . '/backups/before-v' . SCHEMA_VERSION . '.sqlite');
+                for ($version++; $version <= SCHEMA_VERSION; $version++) {
+                    $db->exec(file_get_contents(ROOT_DIR . "/db/migrations/$version.sql"));
+                }
+            }
+        });
     }
     $version = schema_version($db);
     if ($version !== SCHEMA_VERSION) {
@@ -112,6 +120,23 @@ function open_db(string $dataDir): PDO
 function schema_version(PDO $db): int
 {
     return (int)$db->query('PRAGMA user_version')->fetchColumn();
+}
+
+/** Consistent copy of the database, also while another connection writes (docs/decisions.md D-52). */
+function backup_db(string $source, string $target): void
+{
+    if (!is_dir(dirname($target))) {
+        mkdir(dirname($target), 0700, true);
+    }
+    $db = new SQLite3($source, SQLITE3_OPEN_READONLY);
+    $db->enableExceptions(true);
+    $db->busyTimeout(10000);
+    $copy = new SQLite3("$target.tmp");
+    $copy->enableExceptions(true);
+    $db->backup($copy);
+    $copy->close();
+    $db->close();
+    rename("$target.tmp", $target);
 }
 
 function start_session(string $dataDir): void
@@ -284,6 +309,9 @@ function slot_hints(array $entries, DateTimeImmutable $date, string $mealTime): 
         $sameMealIn($next) => ['cook_double' => 'Doppelte Menge für ' . ($next[1] === 'dinner' ? 'den Abend' : 'morgen Mittag')],
         default => [],
     };
+    if (!$leftovers && $entry['advance_prep'] === 1) {
+        $hints['advance_prep'] = 'Vorarbeit nötig';
+    }
     if (!$leftovers && $entry['prep_time'] === 'slow') {
         $hints['slow'] = 'Lange Zubereitung';
     }

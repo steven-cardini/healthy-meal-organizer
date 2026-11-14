@@ -14,7 +14,7 @@ function name_key(string $name): string
 
 /** Columns of an entry: what a slot holds. The tags are null if there is no meal. */
 const ENTRY_COLUMNS = 's.meal_id, s.note, m.name AS meal, m.protein_source, m.prep_time, m.child_factor,
-    m.shelf_life, m.leftovers, m.vegetable_level, m.recipe_url';
+    m.shelf_life, m.leftovers, m.vegetable_level, m.recipe_url, m.advance_prep';
 const EMPTY_ENTRY = ['meal_id' => null, 'note' => null, 'meal' => null];
 const UNCHANGED = ['changed' => false, 'moved' => false, 'moved_away' => false, 'moved_to' => null];
 
@@ -296,11 +296,11 @@ function find_meal_id(PDO $db, string $name): ?int
     return $id === false ? null : (int)$id;
 }
 
-/** @return ?array{id: int, name: string, recipe_url: ?string, ingredients: list<array{name: string, category: string}>, uses: int, ...} the meal with all tags */
+/** @return ?array{id: int, name: string, recipe_url: ?string, advance_prep: int, ingredients: list<array{name: string, category: string}>, uses: int, ...} the meal with all tags */
 function find_meal(PDO $db, int $id): ?array
 {
     $stmt = $db->prepare('SELECT m.id, m.name, m.protein_source, m.heaviness, m.prep_time, m.child_factor,
-            m.shelf_life, m.leftovers, m.vegetable_level, m.recipe_url,
+            m.shelf_life, m.leftovers, m.vegetable_level, m.recipe_url, m.advance_prep,
             (SELECT COUNT(*) FROM blueprint_slot s WHERE s.meal_id = m.id) AS uses
         FROM meal m WHERE m.id = ?');
     $stmt->execute([$id]);
@@ -335,16 +335,16 @@ function ingredient_categories(PDO $db): array
 }
 
 /**
- * $meal: name, one value per tag in MEAL_TAGS, optional recipe_url and ingredients (list of name and category, as
+ * $meal: name, one value per tag in MEAL_TAGS, optional recipe_url, advance_prep (bool) and ingredients (list of name and category, as
  * entered; see clean_ingredients()). Returns the new ID. Callers run it in a transaction (in_transaction()).
  */
 function create_meal(PDO $db, array $meal): int
 {
     [$params, $ingredients] = meal_params($db, $meal);
     execute_meal_write($db, 'INSERT INTO meal (name, name_key, protein_source, heaviness, prep_time, child_factor,
-            shelf_life, leftovers, vegetable_level, recipe_url)
+            shelf_life, leftovers, vegetable_level, recipe_url, advance_prep)
         VALUES (:name, :name_key, :protein_source, :heaviness, :prep_time, :child_factor,
-            :shelf_life, :leftovers, :vegetable_level, :recipe_url)', $params);
+            :shelf_life, :leftovers, :vegetable_level, :recipe_url, :advance_prep)', $params);
     $id = (int)$db->lastInsertId();
     save_meal_ingredients($db, $id, $ingredients);
     return $id;
@@ -357,7 +357,7 @@ function update_meal(PDO $db, int $id, array $meal): void
     $stmt = execute_meal_write($db, 'UPDATE meal SET name = :name, name_key = :name_key,
             protein_source = :protein_source, heaviness = :heaviness, prep_time = :prep_time,
             child_factor = :child_factor, shelf_life = :shelf_life, leftovers = :leftovers,
-            vegetable_level = :vegetable_level, recipe_url = :recipe_url
+            vegetable_level = :vegetable_level, recipe_url = :recipe_url, advance_prep = :advance_prep
         WHERE id = :id', $params + ['id' => $id]);
     if ($stmt->rowCount() === 0) {
         throw new UserError('Dieses Gericht gibt es nicht mehr.');
@@ -365,7 +365,7 @@ function update_meal(PDO $db, int $id, array $meal): void
     save_meal_ingredients($db, $id, $ingredients);
 }
 
-/** Validates $meal (see create_meal()). @return array{array<string, ?string>, list<array{name: string, name_key: string, category: string}>} [SQL parameters, ingredients] */
+/** Validates $meal (see create_meal()). @return array{array<string, string|int|null>, list<array{name: string, name_key: string, category: string}>} [SQL parameters, ingredients] */
 function meal_params(PDO $db, array $meal): array
 {
     if (($meal['name'] ?? '') === '') {
@@ -379,6 +379,7 @@ function meal_params(PDO $db, array $meal): array
         $params[$tag] = $meal[$tag];
     }
     $params['recipe_url'] = clean_url($meal['recipe_url'] ?? '');
+    $params['advance_prep'] = (int)(($meal['advance_prep'] ?? false) === true);
     return [$params, clean_ingredients($db, $meal['ingredients'] ?? [])];
 }
 

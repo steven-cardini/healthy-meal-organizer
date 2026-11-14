@@ -527,13 +527,14 @@ function render_meal_form(PDO $db, array $meal, ?int $id, ?array $target, int $u
 }
 
 /**
- * @return array{name: string, recipe_url: string, ingredients: list<array{name: string, category: string}>, ...}
+ * @return array{name: string, recipe_url: string, advance_prep: bool, ingredients: list<array{name: string, category: string}>, ...}
  * as posted; unchecked by design (see meal_params()).
  */
 function meal_form_input(): array
 {
     $string = fn(mixed $value): string => is_string($value) ? $value : '';
-    $meal = ['name' => $string($_POST['name'] ?? null), 'recipe_url' => $string($_POST['recipe_url'] ?? null), 'ingredients' => []];
+    $meal = ['name' => $string($_POST['name'] ?? null), 'recipe_url' => $string($_POST['recipe_url'] ?? null),
+        'advance_prep' => ($_POST['advance_prep'] ?? null) === '1', 'ingredients' => []];
     foreach (array_keys(MEAL_TAGS) as $tag) {
         $meal[$tag] = is_string($_POST[$tag] ?? null) ? $_POST[$tag] : null;
     }

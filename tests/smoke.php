@@ -93,6 +93,21 @@ check('reopening keeps the schema', schema_version(open_db("$tmp/unit")) === SCH
 $otherVersionDb = open_db("$tmp/version");
 $otherVersionDb->exec('PRAGMA user_version = ' . (SCHEMA_VERSION + 1));
 check('database with another schema version is refused', throws(fn() => open_db("$tmp/version"), RuntimeException::class));
+mkdir("$tmp/migration");
+$oldDb = new PDO("sqlite:$tmp/migration/db.sqlite");
+$oldDb->exec(file_get_contents(__DIR__ . '/fixtures/schema-v1.sql'));
+$oldDb->exec("INSERT INTO meal (name, name_key, protein_source, heaviness, prep_time, child_factor, shelf_life, leftovers,
+    vegetable_level) VALUES ('Pizza', 'pizza', 'dairy_cheese', 'heavy', 'slow', 'high_flyer', 'medium', 'eat_fresh', 'raw_veggies_needed')");
+$oldDb = null;
+$migratedDb = open_db("$tmp/migration");
+$migrationBackup = new PDO("sqlite:$tmp/migration/backups/before-v" . SCHEMA_VERSION . '.sqlite');
+$schemaOf = fn(PDO $db): array => array_map(fn(array $row): array => ['sql' => preg_replace('/\s+/', '', (string)$row['sql'])] + $row,
+    $db->query('SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY name')->fetchAll());
+check('migration from schema version 1: same schema as a new database, backup before', schema_version($migratedDb) === SCHEMA_VERSION
+    && $schemaOf($migratedDb) === $schemaOf($db) && schema_version($migrationBackup) === 1
+    && $migrationBackup->query('SELECT name FROM meal')->fetchColumn() === 'Pizza');
+check('migration keeps the meals, without advance preparation',
+    $migratedDb->query('SELECT name, advance_prep FROM meal')->fetchAll() === [['name' => 'Pizza', 'advance_prep' => 0]]);
 check('text is trimmed and whitespace collapsed', clean_text("  Älpler\t magronen \n") === 'Älpler magronen');
 check('text over 100 characters is rejected', throws(fn() => clean_text(str_repeat('ä', 101)), UserError::class));
 check('invalid UTF-8 is rejected', throws(fn() => clean_text("\xff"), UserError::class));
@@ -111,7 +126,7 @@ check('meal with an unknown tag value is rejected',
     throws(fn() => create_meal($db, meal_input('Rösti', ['heaviness' => 'x'])), UserError::class));
 check('meal without a name is rejected', throws(fn() => create_meal($db, meal_input('')), UserError::class));
 check('database rejects unknown tag values', throws(fn() => $db->exec("INSERT INTO meal VALUES
-    (99, 'x', 'x', 'beef_pork', 'light', 'quick', 'high_flyer', 'short', 'eat_fresh', 'main_component', NULL)"), PDOException::class));
+    (99, 'x', 'x', 'beef_pork', 'light', 'quick', 'high_flyer', 'short', 'eat_fresh', 'main_component', NULL, 0)"), PDOException::class));
 preg_match_all('/\((\w+) IN\s*\(([^)]*)\)/', file_get_contents(ROOT_DIR . '/db/schema.sql'), $match, PREG_SET_ORDER);
 $schemaTags = [];
 foreach ($match as [, $column, $values]) {
@@ -119,7 +134,7 @@ foreach ($match as [, $column, $values]) {
 }
 $schemaCategories = $schemaTags['category'];
 unset($schemaTags['blueprint'], $schemaTags['meal_time'], $schemaTags['planned'], $schemaTags['swap'],
-    $schemaTags['partner_meal_time'], $schemaTags['moved'], $schemaTags['category']);
+    $schemaTags['partner_meal_time'], $schemaTags['moved'], $schemaTags['category'], $schemaTags['advance_prep']);
 check('MEAL_TAGS has the same tags and values as db/schema.sql',
     $schemaTags === array_map(fn(array $definition): array => array_keys($definition['values']), MEAL_TAGS));
 check('INGREDIENT_CATEGORIES has the same values as db/schema.sql', $schemaCategories === array_keys(INGREDIENT_CATEGORIES));
@@ -152,6 +167,14 @@ check('unknown meal is not found', find_meal($db, 999) === null);
 check('meal used in a week blueprint cannot be deleted', throws(fn() => delete_meal($db, $aelplerId, today()), UserError::class));
 delete_meal($db, create_meal($db, meal_input('Unused')), today());
 check('unused meal can be deleted', $mealCount() === 2);
+$doughId = create_meal($db, meal_input('Pizza') + ['advance_prep' => true]);
+$doughSaved = find_meal($db, $doughId)['advance_prep'];
+update_meal($db, $doughId, meal_input('Pizza'));
+check('advance preparation: no by default, saved and changed', find_meal($db, $aelplerId)['advance_prep'] === 0
+    && $doughSaved === 1 && find_meal($db, $doughId)['advance_prep'] === 0);
+check('database rejects other values for advance preparation',
+    throws(fn() => $db->exec("UPDATE meal SET advance_prep = 2 WHERE id = $doughId"), PDOException::class));
+delete_meal($db, $doughId, today());
 
 // Ingredients and recipe link (FR-27 to FR-29).
 $ingredientCount = fn(): int => (int)$db->query('SELECT COUNT(*) FROM ingredient')->fetchColumn();
@@ -276,6 +299,14 @@ check('acquired taste: alternative for the children',
     && str_contains(slot_html($curryEntries, $d('2026-01-21'), 'dinner'), '<li class="hint-child_alternative">Alternative für Kinder</li>'));
 check('leftovers: only the hints for what is prepared fresh', slot_hints($curryEntries, $d('2026-01-22'), 'lunch')
     === ['leftovers' => 'Reste vom Vorabend', 'raw_veggies_needed' => 'Rohkost dazu', 'child_alternative' => 'Alternative für Kinder']);
+$zopf = create_meal($hintDb, meal_input('Zopf', ['shelf_life' => 'long', 'leftovers' => 'reheats_well']) + ['advance_prep' => true]);
+save_blueprint_slot($hintDb, 2, 1, 'lunch', $zopf, null);        // Sat 2026-01-24 (Woche 2)
+save_blueprint_slot($hintDb, 2, 1, 'dinner', $zopf, null);
+$zopfEntries = load_entries($hintDb, $d('2026-01-24'), $d('2026-01-24'));
+check('advance preparation: hint, but not for leftovers', slot_hints($zopfEntries, $d('2026-01-24'), 'lunch')
+    === ['cook_double' => 'Doppelte Menge für den Abend', 'advance_prep' => 'Vorarbeit nötig']
+    && slot_hints($zopfEntries, $d('2026-01-24'), 'dinner') === ['leftovers' => 'Reste vom Mittagessen']
+    && str_contains(slot_html($zopfEntries, $d('2026-01-24'), 'lunch'), '<li class="hint-advance_prep">Vorarbeit nötig</li>'));
 
 // Swaps: week Saturday 2026-01-17 to Friday 2026-01-23 (first use, Woche 1), now is its Saturday noon.
 putenv('MENUPLAN_NOW=2026-01-17 12:00');
@@ -655,7 +686,8 @@ check('new meal form has the name (HTML-escaped), the slot and all tag values', 
     && str_contains($form['body'], 'name="day" value="' . $blueprintDay . '"')
     && str_contains($form['body'], weekday(today()) . ' (Woche 1), Mittagessen')
     && substr_count($form['body'], 'type="radio"') === array_sum(array_map(fn(array $d): int => count($d['values']), MEAL_TAGS)));
-check('new meal form: no value preselected', !str_contains($form['body'], 'checked'));
+check('new meal form: no value preselected, advance preparation off', !str_contains($form['body'], 'checked')
+    && str_contains($form['body'], '<input type="checkbox" role="switch" name="advance_prep" value="1" >'));
 check('new meal form with an invalid slot is rejected',
     request('GET', '/meals/new?blueprint=3&day=1&meal_time=lunch')['status'] === 400
     && request('GET', '/meals/new?blueprint=1&day=8&meal_time=lunch')['status'] === 400);
@@ -995,6 +1027,13 @@ check('grocery list includes swaps, excludes skipped slots, names meals without 
 check('reset of the swap restores the planned week',
     redirects_to(request('POST', '/swap/reset', $slotInput('lunch', $satKey)), "/?date=$satKey")
     && str_contains(request('GET', "/?date=$satKey")['body'], '<p class="meal-name">Rösti</p>'));
+check('advance preparation: saved from the meal form, hint in the day view', redirects_to(request('POST', '/meals/edit',
+    $roestiInput + ['advance_prep' => '1']), "/meals#meal-$roestiId")
+    && str_contains(request('GET', "/meals/edit?id=$roestiId")['body'], 'name="advance_prep" value="1" checked>')
+    && str_contains(request('GET', "/?date=$satKey")['body'], '<li class="hint-advance_prep">Vorarbeit nötig</li>'));
+check('advance preparation: switched off unless the value is 1', redirects_to(request('POST', '/meals/edit',
+    $roestiInput + ['advance_prep' => 'x']), "/meals#meal-$roestiId")
+    && str_contains(request('GET', "/meals/edit?id=$roestiId")['body'], 'name="advance_prep" value="1" >'));
 
 check('unknown page returns 404', request('GET', '/nope')['status'] === 404);
 check('wrong method returns 405', request('GET', '/week-blueprints/slot')['status'] === 405);

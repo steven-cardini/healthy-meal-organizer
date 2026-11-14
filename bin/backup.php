@@ -14,20 +14,7 @@ if (!is_file($source)) {
     throw new RuntimeException("Database not found: $source");
 }
 $dir = $config['data_dir'] . '/backups';
-if (!is_dir($dir)) {
-    mkdir($dir, 0700, true);
-}
-$target = $dir . '/db-' . today()->format('Y-m-d') . '.sqlite';
-
-$db = new SQLite3($source, SQLITE3_OPEN_READONLY);
-$db->enableExceptions(true);
-$db->busyTimeout(10000);
-$copy = new SQLite3("$target.tmp");
-$copy->enableExceptions(true);
-$db->backup($copy);
-$copy->close();
-$db->close();
-rename("$target.tmp", $target);
+backup_db($source, $dir . '/db-' . today()->format('Y-m-d') . '.sqlite');
 
 foreach (array_slice(glob("$dir/db-*.sqlite"), 0, -BACKUPS_KEPT) as $old) {
     unlink($old);
