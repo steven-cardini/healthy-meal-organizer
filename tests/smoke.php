@@ -486,27 +486,6 @@ check('5 failures block', login_blocked($db, '1.2.3.4', $now + 60));
 check('other IPs are not blocked', !login_blocked($db, '5.6.7.8', $now));
 check('block ends after 15 minutes', !login_blocked($db, '1.2.3.4', $now + 15 * 60));
 
-// --- Test data ---------------------------------------------------------------
-
-$count = fn(PDO $db, string $table): int => (int)$db->query("SELECT COUNT(*) FROM $table")->fetchColumn();
-$testDb = open_db("$tmp/testdata");
-check('test data loads into an empty database', load_test_data_if_empty($testDb));
-check('test data fills 27 of 28 slots and 23 meals', $count($testDb, 'blueprint_slot') === 27 && $count($testDb, 'meal') === 23);
-$testDb->exec("INSERT INTO week VALUES ('2026-01-17', 2, 1)");
-$testEntries = load_entries($testDb, $d('2026-01-19'), $d('2026-01-20'));
-check('test data has a leftover pair (Minestrone)', isset(slot_hints($testEntries, $d('2026-01-19'), 'dinner')['cook_double'])
-    && slot_hints($testEntries, $d('2026-01-20'), 'lunch') === ['leftovers' => 'Reste vom Vorabend']);
-$usedNames = array_unique(array_merge(...array_values(TEST_MEAL_INGREDIENTS)));
-check('test data has ingredients with categories and recipe links; Raclette and Zopf-Brunch without ingredients',
-    $count($testDb, 'ingredient') === count($usedNames) && $count($testDb, 'meal') - count(TEST_MEAL_INGREDIENTS) === 2
-    && find_meal($testDb, find_meal_id($testDb, 'Raclette'))['ingredients'] === []
-    && find_meal($testDb, find_meal_id($testDb, 'Pizza'))['ingredients'][0]['category'] === 'dairy_eggs_ready_meals'
-    && find_meal($testDb, find_meal_id($testDb, 'Kürbisrisotto'))['recipe_url'] === TEST_RECIPE_URLS['Kürbisrisotto']);
-check('test data is not loaded twice', !load_test_data_if_empty($testDb) && $count($testDb, 'blueprint_slot') === 27);
-$noteDb = open_db("$tmp/notedata");
-save_blueprint_slot($noteDb, 1, 1, 'lunch', null, 'Eltern kochen');
-check('test data is not loaded if a week blueprint has only a note', !load_test_data_if_empty($noteDb));
-
 // --- Backup --------------------------------------------------------------------
 
 $backupConfig = "$tmp/backup-config.php";
@@ -1035,22 +1014,6 @@ for ($i = 0; $i < 5; $i++) {
 request('POST', '/login', ['csrf' => csrf('/login'), 'password' => 'test-password']);
 check('throttled after 5 failures, even with the correct password',
     str_contains(request('GET', '/login')['body'], 'Zu viele Fehlversuche') && redirects_to(request('GET', '/'), '/login'));
-$writeConfig = function (bool $loadTestData) use ($config, $tmp): void {
-    file_put_contents($config, '<?php return ' . var_export([
-        'password_hash' => password_hash('test-password', PASSWORD_DEFAULT),
-        'data_dir' => "$tmp/http-testdata",
-        'load_test_data' => $loadTestData,
-    ], true) . ';');
-    sleep(3); // opcache.revalidate_freq: the server sees a changed config.php only after 2 s
-};
-$writeConfig(false);
-request('GET', '/login');
-check('no test data without the config setting', is_file("$tmp/http-testdata/db.sqlite")
-    && $count(open_db("$tmp/http-testdata"), 'blueprint_slot') === 0);
-$writeConfig(true);
-request('GET', '/login');
-check('config setting loads test data on the next request', $count(open_db("$tmp/http-testdata"), 'blueprint_slot') === 27);
-
 check('no PHP errors in server log', !preg_match('/(Warning|Notice|Deprecated|Fatal)/', file_get_contents("$tmp/server.log")));
 
 proc_terminate($server);

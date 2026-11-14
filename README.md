@@ -9,14 +9,7 @@ Requirements: PHP 8.5 with `pdo_sqlite`, `sqlite3` and `mbstring`; Apache with `
 1. Copy `config.example.php` to `config.php` and fill in:
    - `password_hash`: `php -r 'echo password_hash("YOUR-PASSWORD", PASSWORD_DEFAULT), PHP_EOL;'`
    - `data_dir`: keep the default unless the data should live elsewhere (never inside `public/`).
-   - `load_test_data`: see below.
 2. The database `data/db.sqlite` is created from `db/schema.sql` on the first request.
-
-## Test data
-
-With `'load_test_data' => true` in `config.php`, an empty database (no meals, no week blueprint slots) is filled with test week blueprints on the next request. Works locally and on the server.
-
-To start real usage: set it to `false` (or remove it), then delete `data/db.sqlite`. The next request creates an empty database.
 
 ## Local development
 

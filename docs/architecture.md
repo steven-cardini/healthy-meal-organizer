@@ -31,8 +31,7 @@ public/               Document root (the only web-accessible folder)
   sw.js               Service worker (at the root so its scope is /)
   offline.html
   assets/             app.css (theme, tag icons), app.js (service worker registration, swipe, slide direction, ingredient rows, grocery ticks), icons/
-src/                  PHP code: app.php (helpers, config, DB, session), calendar.php, repository.php, pages.php,
-                      test_data.php (test meals with ingredients and week blueprints, loaded into an empty DB if config.php has load_test_data = true)
+src/                  PHP code: app.php (helpers, config, DB, session), calendar.php, repository.php, pages.php
 templates/            HTML templates
 db/schema.sql         Database schema (SSOT)
 bin/backup.php        Daily database backup, run by a scheduled task (README.md#backups)

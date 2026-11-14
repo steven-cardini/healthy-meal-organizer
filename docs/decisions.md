@@ -60,7 +60,3 @@
 ## Open points (before or during implementation)
 
 - **Migrations:** schema changes need migrations (D-17). With the first one: run each migration in a transaction, after a backup, tested on a copy of an old database (every push deploys to production).
-
-Before production holds real data (the database can still be deleted until then):
-
-- **Reset of production:** set `load_test_data` to `false`, then delete `db.sqlite`. The first logged-in request fixes the current week as *Woche 1*, which keeps following the week blueprints (FR-25), so reset right before entering the real week blueprints.
